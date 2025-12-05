@@ -22,7 +22,7 @@ export function CompactBetVisualizer({ content, buyType }: CompactBetVisualizerP
           BOX
         </span>
         <span className="text-xs font-mono text-foreground tracking-wide">
-          {content.horses.map(toCircledNumber).join(" ")}
+          {content.horses.map(toCircledNumber).join("")}
         </span>
       </div>
     )
@@ -32,14 +32,17 @@ export function CompactBetVisualizer({ content, buyType }: CompactBetVisualizerP
   if (buyType === "NAGASHI" && (content.axis || content.partners)) {
     return (
       <div className="flex items-center gap-1.5 py-1 flex-wrap">
+        <span className="text-[10px] font-bold text-white bg-white/10 px-1.5 py-0.5 border border-white/30">
+          {content.multi ? "WHEEL (MULTI)" : "WHEEL"}
+        </span>
         <span className="text-[10px] font-bold text-white/70">軸:</span>
         <span className="text-xs font-mono text-white tracking-wide">
-          {content.axis?.map(toCircledNumber).join(" ") || "-"}
+          {content.axis?.map(toCircledNumber).join("") || "-"}
         </span>
-        <span className="text-muted-foreground">{content.multi ? "↔" : "→"}</span>
+        <span className="text-muted-foreground">→</span>
         <span className="text-[10px] font-bold text-white/70">相手:</span>
         <span className="text-xs font-mono text-white tracking-wide">
-          {content.partners?.map(toCircledNumber).join(" ") || "-"}
+          {content.partners?.map(toCircledNumber).join("") || "-"}
         </span>
       </div>
     )
@@ -54,7 +57,10 @@ export function CompactBetVisualizer({ content, buyType }: CompactBetVisualizerP
     ].filter((p) => p.data && p.data.length > 0)
 
     return (
-      <div className="flex items-center gap-1 py-1 flex-wrap text-xs">
+      <div className="flex items-center gap-1.5 py-1 flex-wrap text-xs">
+        <span className="text-[10px] font-bold text-white bg-white/10 px-1.5 py-0.5 border border-white/30">
+          FORM
+        </span>
         {positions.map((pos, idx) => (
           <span key={pos.key} className="flex items-center gap-1">
             <span className="text-[10px] text-muted-foreground">{pos.label}:</span>

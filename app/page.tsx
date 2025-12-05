@@ -5,6 +5,7 @@ import { Header } from "@/components/header"
 import { RaceList } from "@/components/race-list"
 import { MobileNav } from "@/components/mobile-nav"
 import { FriendRequestModal } from "@/components/friend-request-modal"
+import { FilterSummary } from "@/components/filter-summary" // Import the new component
 import { useIsMobile } from "@/hooks/use-mobile"
 import type { Ticket, Friend, FilterState, Race } from "@/types/ticket"
 
@@ -334,6 +335,10 @@ export default function DashboardPage() {
         nextRaceInfo={nextRaceInfo}
       />
 
+      {hasActiveFilters && !isMobile && (
+        <FilterSummary filterState={filterState} friends={friends} className="max-w-[1800px] mx-auto" />
+      )}
+
       {isMobile ? (
         <>
           <div className="px-3 py-2 border-b border-white/10 bg-black/50 flex items-center justify-center gap-2">
@@ -343,6 +348,8 @@ export default function DashboardPage() {
             </span>
             <span className="text-sm font-mono text-[#00f3ff]">{nextRaceInfo.time}</span>
           </div>
+
+          {hasActiveFilters && <FilterSummary filterState={filterState} friends={friends} />}
 
           <MobileNav activeTab={activeTab} onTabChange={setActiveTab} />
 

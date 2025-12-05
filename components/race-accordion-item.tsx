@@ -46,7 +46,7 @@ export function RaceAccordionItem({ race, index, variant = "my" }: RaceAccordion
   )
 
   return (
-    <div className={cn("border-l-2", config.border, index % 2 === 0 ? "bg-white/[0.01]" : "bg-transparent")}>
+    <div className={cn(index % 2 === 0 ? "bg-white/[0.01]" : "bg-transparent")}>
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
