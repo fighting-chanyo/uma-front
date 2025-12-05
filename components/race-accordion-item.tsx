@@ -132,7 +132,7 @@ function TicketRow({ ticket }: { ticket: Ticket & { owner: "me" | "friend" } }) 
   return (
     <div
       className={cn(
-        "grid grid-cols-[auto_1fr_80px] gap-3 px-3 py-3 items-center",
+        "grid grid-cols-[auto_1fr_80px] gap-3 px-3 py-1 items-center",
         "transition-colors",
         isAir
           ? [
