@@ -150,18 +150,12 @@ function TicketRow({ ticket }: { ticket: Ticket & { owner: "me" | "friend" } }) 
           className={cn(
             "text-[10px] font-bold px-1.5 py-0.5 border",
             isAir
-              ? "text-white/50 border-white/20 bg-white/5"
-              : "text-[#00f3ff]/70 bg-[#00f3ff]/10 border-[#00f3ff]/30",
+              ? "text-yellow-400/50 border-yellow-400/20 bg-yellow-400/5"
+              : "text-yellow-400 bg-yellow-400/10 border-yellow-400/30",
           )}
         >
           {ticket.betType}
         </span>
-        {isAir && (
-          <span className="flex items-center gap-0.5 text-[9px] px-1 py-0.5 border border-dashed border-white/30 text-white/50 bg-white/5">
-            <Ghost className="w-3 h-3" />
-            SIM
-          </span>
-        )}
       </div>
 
       {/* Bet Content */}

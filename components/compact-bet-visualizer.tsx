@@ -18,7 +18,7 @@ export function CompactBetVisualizer({ content, buyType }: CompactBetVisualizerP
   if (buyType === "BOX" && content.horses) {
     return (
       <div className="flex items-center gap-1.5 py-1">
-        <span className="text-[10px] font-bold text-[#00f3ff]/70 bg-[#00f3ff]/10 px-1.5 py-0.5 border border-[#00f3ff]/30">
+        <span className="text-[10px] font-bold text-white bg-white/10 px-1.5 py-0.5 border border-white/30">
           BOX
         </span>
         <span className="text-xs font-mono text-foreground tracking-wide">
@@ -32,18 +32,13 @@ export function CompactBetVisualizer({ content, buyType }: CompactBetVisualizerP
   if (buyType === "NAGASHI" && (content.axis || content.partners)) {
     return (
       <div className="flex items-center gap-1.5 py-1 flex-wrap">
-        {content.multi && (
-          <span className="text-[10px] font-bold text-[#00ff41]/70 bg-[#00ff41]/10 px-1.5 py-0.5 border border-[#00ff41]/30">
-            マルチ
-          </span>
-        )}
-        <span className="text-[10px] font-bold text-[#ff003c]/70">軸:</span>
-        <span className="text-xs font-mono text-[#ff003c] tracking-wide">
+        <span className="text-[10px] font-bold text-white/70">軸:</span>
+        <span className="text-xs font-mono text-white tracking-wide">
           {content.axis?.map(toCircledNumber).join(" ") || "-"}
         </span>
-        <span className="text-muted-foreground">→</span>
-        <span className="text-[10px] font-bold text-[#00f3ff]/70">相手:</span>
-        <span className="text-xs font-mono text-[#00f3ff] tracking-wide">
+        <span className="text-muted-foreground">{content.multi ? "↔" : "→"}</span>
+        <span className="text-[10px] font-bold text-white/70">相手:</span>
+        <span className="text-xs font-mono text-white tracking-wide">
           {content.partners?.map(toCircledNumber).join(" ") || "-"}
         </span>
       </div>
