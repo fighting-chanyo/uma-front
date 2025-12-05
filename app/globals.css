@@ -137,6 +137,30 @@
   }
 }
 
+.rdp-months::after {
+  content: "〜";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #a1a1aa; /* text-muted-foreground相当の色 */
+  font-size: 1.5rem;
+  z-index: 10;
+}
+
+/* React Datepicker custom styles */
+.react-datepicker-popper[data-placement^="bottom"] {
+  transform: none !important;
+}
+
+.react-datepicker-popper[data-placement^="top"] {
+  transform: none !important;
+}
+
+.react-datepicker__triangle {
+  display: none !important;
+}
+
 /* Cyberpunk Custom Animations */
 @keyframes neon-pulse {
   0%,

@@ -54,7 +54,10 @@ export interface Friend {
 export interface FilterState {
   displayMode: "REAL" | "AIR" | "BOTH"
   selectedFriendIds: string[]
-  dateRange: { from?: Date; to?: Date }
+  dateRange: {
+    from?: Date | null
+    to?: Date | null
+  }
   venues: string[]
 }
 

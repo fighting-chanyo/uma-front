@@ -9,6 +9,14 @@ import { cn } from "@/lib/utils"
 import type { Friend, FilterState } from "@/types/ticket"
 import { VENUES } from "@/types/ticket"
 
+// react-datepicker とそのCSSをインポート
+import DatePicker, { registerLocale } from "react-datepicker"
+import "react-datepicker/dist/react-datepicker.css"
+import { ja } from "date-fns/locale/ja"
+
+// 日本語ロケールを登録
+registerLocale("ja", ja)
+
 interface FilterModalProps {
   friends: Friend[]
   filterState: FilterState
@@ -31,7 +39,7 @@ export function FilterModal({ friends, filterState, onApplyFilters, hasActiveFil
     onApplyFilters(localFilters)
     setOpen(false)
   }
-
+  
   const handleSelectAllFriends = () => {
     if (localFilters.selectedFriendIds.length === friends.length) {
       setLocalFilters((prev) => ({ ...prev, selectedFriendIds: [] }))
@@ -65,12 +73,9 @@ export function FilterModal({ friends, filterState, onApplyFilters, hasActiveFil
           className="relative h-9 w-9 hover:bg-white/5 border border-white/10 hover:border-[#00f3ff]/50 transition-colors"
         >
           <Filter className="h-5 w-5 text-muted-foreground" />
-          {hasActiveFilters && (
-            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#ff003c] rounded-full neon-pulse" />
-          )}
         </Button>
       </DialogTrigger>
-      <DialogContent className="bg-[#0a0a0a]/95 backdrop-blur-xl border border-white/10 max-w-md">
+      <DialogContent className="bg-[#0a0a0a]/95 backdrop-blur-xl border border-white/10 max-w-md" id="filter-modal-content">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-foreground font-bold tracking-wider">
             <Filter className="h-5 w-5 text-[#00f3ff]" />
@@ -153,28 +158,23 @@ export function FilterModal({ friends, filterState, onApplyFilters, hasActiveFil
               <CalendarDays className="h-4 w-4" />
               DATE RANGE
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="date"
-                className="bg-black/50 border border-white/10 px-3 py-2 text-xs text-foreground focus:border-[#00f3ff]/50 focus:outline-none"
-                onChange={(e) =>
-                  setLocalFilters((prev) => ({
-                    ...prev,
-                    dateRange: { ...prev.dateRange, from: e.target.value ? new Date(e.target.value) : undefined },
-                  }))
-                }
-              />
-              <input
-                type="date"
-                className="bg-black/50 border border-white/10 px-3 py-2 text-xs text-foreground focus:border-[#00f3ff]/50 focus:outline-none"
-                onChange={(e) =>
-                  setLocalFilters((prev) => ({
-                    ...prev,
-                    dateRange: { ...prev.dateRange, to: e.target.value ? new Date(e.target.value) : undefined },
-                  }))
-                }
-              />
-            </div>
+            <DatePicker
+              selectsRange={true}
+              startDate={localFilters.dateRange.from}
+              endDate={localFilters.dateRange.to}
+              onChange={(dates: [Date | null, Date | null]) => {
+                setLocalFilters(prev => ({
+                  ...prev,
+                  dateRange: { from: dates[0], to: dates[1] },
+                }))
+              }}
+              isClearable={true}
+              dateFormat="yyyy/MM/dd"
+              locale="ja"
+              className="w-full bg-black/50 border border-white/10 px-3 py-2 text-xs text-foreground focus:border-[#00f3ff]/50 focus:outline-none"
+              portalId="filter-modal-content"
+              popperPlacement="bottom"
+            />
           </div>
 
           {/* Venue Section */}

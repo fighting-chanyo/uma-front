@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Header } from "@/components/header"
 import { RaceList } from "@/components/race-list"
 import { MobileNav } from "@/components/mobile-nav"
@@ -8,6 +8,14 @@ import { FriendRequestModal } from "@/components/friend-request-modal"
 import { FilterSummary } from "@/components/filter-summary" // Import the new component
 import { useIsMobile } from "@/hooks/use-mobile"
 import type { Ticket, Friend, FilterState, Race } from "@/types/ticket"
+
+// FilterStateのdateRangeの型定義を修正
+export interface UpdatedFilterState extends Omit<FilterState, 'dateRange'> {
+  dateRange: {
+    from: Date | null
+    to: Date | null
+  }
+}
 
 const friends: Friend[] = [
   { id: "u1", name: "TurfMaster", avatar: "/male-avatar-blue.jpg" },
@@ -276,16 +284,44 @@ export default function DashboardPage() {
   const [filterState, setFilterState] = useState<FilterState>({
     displayMode: "BOTH",
     selectedFriendIds: friends.map((f) => f.id),
-    dateRange: {},
+    dateRange: { from: null, to: null },
     venues: [],
   })
+
+  useEffect(() => {
+    const allTickets = [...myTickets, ...friendTickets];
+    if (allTickets.length > 0) {
+      const latestDate = allTickets.reduce((latest, ticket) => {
+        const ticketDate = new Date(ticket.raceDate);
+        return ticketDate > latest ? ticketDate : latest;
+      }, new Date(0));
+
+      const dayOfWeek = latestDate.getDay(); // 0 (Sun) - 6 (Sat)
+      
+      // 直近の土曜日を探す
+      const lastSaturday = new Date(latestDate);
+      lastSaturday.setDate(latestDate.getDate() - (dayOfWeek + 1) % 7);
+      
+      // 直近の日曜日を探す
+      const lastSunday = new Date(lastSaturday);
+      lastSunday.setDate(lastSaturday.getDate() + 1);
+
+      setFilterState(prevState => ({
+        ...prevState,
+        dateRange: {
+          from: lastSaturday,
+          to: lastSunday,
+        }
+      }));
+    }
+  }, []); // 空の依存配列で初回レンダリング時のみ実行
 
   const hasActiveFilters = useMemo(() => {
     return (
       filterState.displayMode !== "BOTH" ||
       filterState.selectedFriendIds.length !== friends.length ||
-      filterState.dateRange.from !== undefined ||
-      filterState.dateRange.to !== undefined ||
+      filterState.dateRange.from != null ||
+      filterState.dateRange.to != null ||
       filterState.venues.length > 0
     )
   }, [filterState])
