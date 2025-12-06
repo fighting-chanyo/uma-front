@@ -27,7 +27,8 @@ export function RaceAccordionItem({ race, index, variant = "my" }: RaceAccordion
   const friendTickets = race.tickets.filter((t) => t.owner === "friend")
 
   const datePart = race.raceId.split("-")[0]
-  const formattedDate = datePart ? datePart.slice(5).replace("/", "/") : ""
+  // 年を含めた形式に変更 (slice(5)を削除)
+  const formattedDate = datePart || ""
 
   const friendTicketsByUser = friendTickets.reduce(
     (acc, ticket) => {
@@ -136,9 +137,8 @@ function TicketRow({ ticket }: { ticket: Ticket & { owner: "me" | "friend" } }) 
         "transition-colors",
         isAir
           ? [
-              "bg-[repeating-linear-gradient(135deg,transparent,transparent_4px,rgba(255,255,255,0.02)_4px,rgba(255,255,255,0.02)_8px)]",
-              "border-l-2 border-dashed border-white/20",
-              "opacity-70",
+              "bg-white/[0.08]", // 背景色を明るめに変更
+              "border-l-2 border-dashed border-white/40", // ボーダーを少し強調
             ]
           : ["hover:bg-white/[0.02]", ticket.owner === "friend" && "bg-[#ff003c]/[0.02]"],
       )}
@@ -146,11 +146,16 @@ function TicketRow({ ticket }: { ticket: Ticket & { owner: "me" | "friend" } }) 
       {/* Status + Bet Type + Mode Badge */}
       <div className="flex items-center gap-2">
         <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", statusColor[ticket.status])} />
+        {isAir && (
+          <span className="text-[10px] font-bold px-1.5 py-0.5 border border-dashed text-white/70 border-white/40 bg-white/5">
+            エア
+          </span>
+        )}
         <span
           className={cn(
             "text-[10px] font-bold px-1.5 py-0.5 border",
             isAir
-              ? "text-yellow-400/50 border-yellow-400/20 bg-yellow-400/5"
+              ? "text-yellow-400/70 border-yellow-400/30 bg-yellow-400/5" // エア馬券の券種も少し強調
               : "text-yellow-400 bg-yellow-400/10 border-yellow-400/30",
           )}
         >
@@ -159,12 +164,12 @@ function TicketRow({ ticket }: { ticket: Ticket & { owner: "me" | "friend" } }) 
       </div>
 
       {/* Bet Content */}
-      <div className={cn("min-w-0", isAir && "opacity-80")}>
+      <div className="min-w-0">
         <CompactBetVisualizer content={ticket.content} buyType={ticket.buyType} />
       </div>
 
       {/* Amount / Payout */}
-      <div className={cn("text-right text-xs font-mono flex items-center justify-end gap-3 whitespace-nowrap", isAir && "opacity-70")}>
+      <div className="text-right text-xs font-mono flex items-center justify-end gap-3 whitespace-nowrap">
         <span className="text-muted-foreground">¥{ticket.amount.toLocaleString()}</span>
         
         {ticket.status === "WIN" && ticket.payout && (

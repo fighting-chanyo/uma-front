@@ -5,10 +5,11 @@ import { Header } from "@/components/header"
 import { RaceList } from "@/components/race-list"
 import { MobileNav } from "@/components/mobile-nav"
 import { FriendRequestModal } from "@/components/friend-request-modal"
-import { FilterSummary } from "@/components/filter-summary" // Import the new component
+import { FilterSummary } from "@/components/filter-summary"
 import { useIsMobile } from "@/hooks/use-mobile"
 import type { Ticket, Friend, FilterState, Race } from "@/types/ticket"
-import { VENUES } from "@/types/ticket" // VENUES定数をインポート
+import { VENUES } from "@/types/ticket"
+import { supabase } from "@/lib/supabase"
 
 // FilterStateのdateRangeの型定義を修正
 export interface UpdatedFilterState extends Omit<FilterState, 'dateRange'> {
@@ -18,222 +19,16 @@ export interface UpdatedFilterState extends Omit<FilterState, 'dateRange'> {
   }
 }
 
-const friends: Friend[] = [
-  { id: "u1", name: "TurfMaster", avatar: "/male-avatar-blue.jpg" },
-  { id: "u2", name: "HorseWhisperer", avatar: "/female-avatar-purple.jpg" },
-  { id: "u3", name: "NightRider", avatar: "/male-avatar-red-cyber.jpg" },
-  { id: "u4", name: "LuckyStrike", avatar: "/female-avatar-green.jpg" },
-]
+// 開発用モックユーザーID
+const MOCK_USER_ID = "03e8d27e-6011-4f5b-bbfd-53c094e4e25f"
 
-// チケットデータ
-const myTickets: Ticket[] = [
-  {
-    id: "1",
-    raceName: "日本ダービー",
-    raceDate: "2024/05/26",
-    venue: "東京",
-    raceNumber: 11,
-    raceTime: "15:40",
-    betType: "3連単",
-    buyType: "NAGASHI",
-    content: { axis: ["01", "05"], partners: ["02", "03", "04", "06", "07"], multi: true },
-    amount: 6000,
-    status: "WIN",
-    mode: "REAL",
-    payout: 125400,
-  },
-  {
-    id: "2",
-    raceName: "日本ダービー",
-    raceDate: "2024/05/26",
-    venue: "東京",
-    raceNumber: 11,
-    raceTime: "15:40",
-    betType: "馬連",
-    buyType: "BOX",
-    content: { horses: ["01", "02", "03", "04", "05"] },
-    amount: 1000,
-    status: "WIN",
-    mode: "REAL",
-    payout: 3200,
-  },
-  {
-    id: "3",
-    raceName: "宝塚記念",
-    raceDate: "2024/06/23",
-    venue: "阪神",
-    raceNumber: 11,
-    raceTime: "15:50",
-    betType: "単勝",
-    buyType: "BOX",
-    content: { horses: ["08"] },
-    amount: 5000,
-    status: "PENDING",
-    mode: "AIR",
-  },
-  {
-    id: "4",
-    raceName: "安田記念",
-    raceDate: "2024/06/02",
-    venue: "東京",
-    raceNumber: 11,
-    raceTime: "15:40",
-    betType: "3連複",
-    buyType: "BOX",
-    content: { horses: ["02", "05", "09", "11"] },
-    amount: 400,
-    status: "WIN",
-    mode: "REAL",
-    payout: 8900,
-  },
-  {
-    id: "5",
-    raceName: "天皇賞（春）",
-    raceDate: "2024/04/28",
-    venue: "京都",
-    raceNumber: 11,
-    raceTime: "15:40",
-    betType: "3連単",
-    buyType: "NAGASHI",
-    content: { axis: ["03", "07"], partners: ["01", "05", "08", "12", "15"], multi: true },
-    amount: 3000,
-    status: "LOSE",
-    mode: "REAL",
-  },
-  {
-    id: "6",
-    raceName: "安田記念",
-    raceDate: "2024/06/02",
-    venue: "東京",
-    raceNumber: 11,
-    raceTime: "15:40",
-    betType: "馬連",
-    buyType: "BOX",
-    content: { horses: ["01", "05", "09"] },
-    amount: 300,
-    status: "WIN",
-    mode: "AIR",
-    payout: 1200,
-  },
-]
-
-const friendTickets: Ticket[] = [
-  {
-    id: "f1",
-    raceName: "日本ダービー",
-    raceDate: "2024/05/26",
-    venue: "東京",
-    raceNumber: 11,
-    raceTime: "15:40",
-    betType: "馬単",
-    buyType: "NAGASHI",
-    content: { axis: ["14"], partners: ["01", "02", "05"] },
-    amount: 300,
-    status: "LOSE",
-    mode: "REAL",
-    userName: "TurfMaster",
-    userId: "u1",
-  },
-  {
-    id: "f2",
-    raceName: "日本ダービー",
-    raceDate: "2024/05/26",
-    venue: "東京",
-    raceNumber: 11,
-    raceTime: "15:40",
-    betType: "3連複",
-    buyType: "BOX",
-    content: { horses: ["01", "05", "14"] },
-    amount: 500,
-    status: "WIN",
-    mode: "REAL",
-    payout: 8200,
-    userName: "TurfMaster",
-    userId: "u1",
-  },
-  {
-    id: "f3",
-    raceName: "宝塚記念",
-    raceDate: "2024/06/23",
-    venue: "阪神",
-    raceNumber: 11,
-    raceTime: "15:50",
-    betType: "3連単",
-    buyType: "FORMATION",
-    content: { "1st": ["03", "08"], "2nd": ["03", "08", "11"], "3rd": ["03", "05", "08", "11"] },
-    amount: 1200,
-    status: "PENDING",
-    mode: "REAL",
-    userName: "NightRider",
-    userId: "u3",
-  },
-  {
-    id: "f4",
-    raceName: "宝塚記念",
-    raceDate: "2024/06/23",
-    venue: "阪神",
-    raceNumber: 11,
-    raceTime: "15:50",
-    betType: "単勝",
-    buyType: "BOX",
-    content: { horses: ["08"] },
-    amount: 1000,
-    status: "PENDING",
-    mode: "AIR",
-    userName: "NightRider",
-    userId: "u3",
-  },
-  {
-    id: "f5",
-    raceName: "天皇賞（春）",
-    raceDate: "2024/04/28",
-    venue: "京都",
-    raceNumber: 11,
-    raceTime: "15:40",
-    betType: "3連複",
-    buyType: "BOX",
-    content: { horses: ["03", "05", "07", "12"] },
-    amount: 600,
-    status: "WIN",
-    mode: "REAL",
-    payout: 34500,
-    userName: "TurfMaster",
-    userId: "u1",
-  },
-  {
-    id: "f6",
-    raceName: "安田記念",
-    raceDate: "2024/06/02",
-    venue: "東京",
-    raceNumber: 11,
-    raceTime: "15:40",
-    betType: "単勝",
-    buyType: "BOX",
-    content: { horses: ["05"] },
-    amount: 10000,
-    status: "LOSE",
-    mode: "REAL",
-    userName: "LuckyStrike",
-    userId: "u4",
-  },
-  {
-    id: "f7",
-    raceName: "安田記念",
-    raceDate: "2024/06/02",
-    venue: "東京",
-    raceNumber: 11,
-    raceTime: "15:40",
-    betType: "馬連",
-    buyType: "BOX",
-    content: { horses: ["02", "05", "09"] },
-    amount: 300,
-    status: "WIN",
-    mode: "AIR",
-    payout: 1500,
-    userName: "HorseWhisperer",
-    userId: "u2",
-  },
-]
+// 会場コード変換マップ
+const PLACE_CODE_MAP: Record<string, string> = {
+  "01": "札幌", "02": "函館", "03": "福島", "04": "新潟",
+  "05": "東京", "06": "中山", "07": "中京", "08": "京都",
+  "09": "阪神", "10": "小倉"
+}
+const getVenueName = (code: string) => PLACE_CODE_MAP[code] || code
 
 // チケットをレース単位にグルーピング
 function groupTicketsByRace(myTickets: Ticket[], friendTickets: Ticket[]): Race[] {
@@ -281,14 +76,132 @@ export default function DashboardPage() {
   const isMobile = useIsMobile()
   const [activeTab, setActiveTab] = useState<"my" | "friend" | "analysis">("my")
   const [isFriendModalOpen, setIsFriendModalOpen] = useState(false)
+  
+  // State for data
+  const [friends, setFriends] = useState<Friend[]>([])
+  const [myTickets, setMyTickets] = useState<Ticket[]>([])
+  const [friendTickets, setFriendTickets] = useState<Ticket[]>([])
 
   const [filterState, setFilterState] = useState<FilterState>({
     displayMode: "BOTH",
-    selectedFriendIds: friends.map((f) => f.id),
+    selectedFriendIds: [], // 初期値は空、データ取得後に更新
     dateRange: { from: null, to: null },
-    venues: [...VENUES], // スプレッド構文で新しい配列を作成
+    venues: [...VENUES],
   })
 
+  // データ取得
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        // 1. フレンド一覧の取得
+        const { data: friendsData, error: friendsError } = await supabase
+          .from('friends')
+          .select('friend_id')
+          .eq('user_id', MOCK_USER_ID)
+          .eq('status', 'ACCEPTED')
+        
+        if (friendsError) throw friendsError
+        
+        const friendIds = friendsData?.map(f => f.friend_id) || []
+        
+        if (friendIds.length > 0) {
+          const { data: profilesData, error: profilesError } = await supabase
+            .from('profiles')
+            .select('*')
+            .in('id', friendIds)
+          
+          if (profilesError) throw profilesError
+
+          const mappedFriends: Friend[] = (profilesData || []).map(p => ({
+            id: p.id,
+            name: p.display_name || 'Unknown',
+            avatar: p.avatar_url || '/placeholder-avatar.jpg' // デフォルトアバター
+          }))
+          setFriends(mappedFriends)
+          
+          // フレンドが読み込まれたらフィルタの選択状態を更新（全員選択）
+          setFilterState(prev => ({ ...prev, selectedFriendIds: mappedFriends.map(f => f.id) }))
+        }
+
+        // 2. 自分のチケット取得
+        const { data: myTicketsData, error: myTicketsError } = await supabase
+          .from('tickets')
+          .select(`
+            *,
+            races (
+              name, date, place_code, race_number, result_1st
+            )
+          `)
+          .eq('user_id', MOCK_USER_ID)
+        
+        if (myTicketsError) throw myTicketsError
+
+        console.log("Debug: myTicketsData raw", myTicketsData); // 追加
+
+        const mappedMyTickets: Ticket[] = (myTicketsData || []).map((t: any) => ({
+          id: t.id,
+          raceName: t.races?.name || '',
+          raceDate: t.races?.date || '',
+          venue: getVenueName(t.races?.place_code || ''),
+          raceNumber: t.races?.race_number || 0,
+          raceTime: "00:00", // DBに時刻がない場合は仮置き
+          betType: t.bet_type,
+          buyType: t.buy_type,
+          content: t.content,
+          amount: t.total_cost, // total_costを使用
+          status: t.status,
+          mode: t.mode,
+          payout: t.payout || 0,
+        }))
+        setMyTickets(mappedMyTickets)
+
+        // 3. フレンドのチケット取得
+        if (friendIds.length > 0) {
+          const { data: friendTicketsData, error: friendTicketsError } = await supabase
+            .from('tickets')
+            .select(`
+              *,
+              races (
+                name, date, place_code, race_number
+              ),
+              profiles:user_id (
+                id, display_name, avatar_url
+              )
+            `)
+            .in('user_id', friendIds)
+          
+          if (friendTicketsError) throw friendTicketsError
+
+          const mappedFriendTickets: Ticket[] = (friendTicketsData || []).map((t: any) => ({
+            id: t.id,
+            raceName: t.races?.name || '',
+            raceDate: t.races?.date || '',
+            venue: getVenueName(t.races?.place_code || ''),
+            raceNumber: t.races?.race_number || 0,
+            raceTime: "00:00",
+            betType: t.bet_type,
+            buyType: t.buy_type,
+            content: t.content,
+            amount: t.total_cost,
+            status: t.status,
+            mode: t.mode,
+            payout: t.payout || 0,
+            userName: t.profiles?.display_name || 'Unknown',
+            userId: t.user_id,
+            userAvatar: t.profiles?.avatar_url
+          }))
+          setFriendTickets(mappedFriendTickets)
+        }
+
+      } catch (error) {
+        console.error('Error fetching data:', error)
+      }
+    }
+
+    fetchData()
+  }, [])
+
+  // 日付フィルタの初期化ロジック
   useEffect(() => {
     const allTickets = [...myTickets, ...friendTickets];
     if (allTickets.length > 0) {
@@ -307,15 +220,23 @@ export default function DashboardPage() {
       const lastSunday = new Date(lastSaturday);
       lastSunday.setDate(lastSaturday.getDate() + 1);
 
-      setFilterState(prevState => ({
-        ...prevState,
-        dateRange: {
-          from: lastSaturday,
-          to: lastSunday,
+      // 初回のみ設定したいが、ticketsがロードされるタイミングで実行する必要がある
+      // ユーザーが手動で変更した後も上書きしないようにチェックが必要だが、
+      // ここでは簡易的に「dateRangeがnullの場合」のみ設定する
+      setFilterState(prevState => {
+        if (prevState.dateRange.from === null && prevState.dateRange.to === null) {
+          return {
+            ...prevState,
+            dateRange: {
+              from: lastSaturday,
+              to: lastSunday,
+            }
+          }
         }
-      }));
+        return prevState
+      });
     }
-  }, []); // 空の依存配列で初回レンダリング時のみ実行
+  }, [myTickets, friendTickets]);
 
   const hasActiveFilters = useMemo(() => {
     return (
@@ -325,7 +246,7 @@ export default function DashboardPage() {
       filterState.dateRange.from != null ||
       filterState.dateRange.to != null
     )
-  }, [filterState])
+  }, [filterState, friends.length]) // friends.lengthを依存配列に追加
 
   const applyFilters = (tickets: Ticket[]) => {
     return tickets.filter((ticket) => {
@@ -338,11 +259,11 @@ export default function DashboardPage() {
     })
   }
 
-  const filteredMyTickets = useMemo(() => applyFilters(myTickets), [filterState])
+  const filteredMyTickets = useMemo(() => applyFilters(myTickets), [filterState, myTickets])
   const filteredFriendTickets = useMemo(() => {
     const byFriend = friendTickets.filter((t) => t.userId && filterState.selectedFriendIds.includes(t.userId))
     return applyFilters(byFriend)
-  }, [filterState])
+  }, [filterState, friendTickets])
 
   const myRaces = useMemo(() => groupTicketsByRace(filteredMyTickets, []), [filteredMyTickets])
   const friendRaces = useMemo(() => groupTicketsByRace([], filteredFriendTickets), [filteredFriendTickets])
@@ -355,7 +276,7 @@ export default function DashboardPage() {
       }
     }
     return "FRIENDS' RACES";
-  }, [filterState.selectedFriendIds]);
+  }, [filterState.selectedFriendIds, friends]);
 
   const nextRaceInfo = { venue: "東京", raceNumber: 11, time: "15:35" }
 
