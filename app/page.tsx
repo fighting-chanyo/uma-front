@@ -8,6 +8,7 @@ import { FriendRequestModal } from "@/components/friend-request-modal"
 import { FilterSummary } from "@/components/filter-summary" // Import the new component
 import { useIsMobile } from "@/hooks/use-mobile"
 import type { Ticket, Friend, FilterState, Race } from "@/types/ticket"
+import { VENUES } from "@/types/ticket" // VENUES定数をインポート
 
 // FilterStateのdateRangeの型定義を修正
 export interface UpdatedFilterState extends Omit<FilterState, 'dateRange'> {
@@ -285,7 +286,7 @@ export default function DashboardPage() {
     displayMode: "BOTH",
     selectedFriendIds: friends.map((f) => f.id),
     dateRange: { from: null, to: null },
-    venues: [],
+    venues: [...VENUES], // スプレッド構文で新しい配列を作成
   })
 
   useEffect(() => {
@@ -320,9 +321,9 @@ export default function DashboardPage() {
     return (
       filterState.displayMode !== "BOTH" ||
       filterState.selectedFriendIds.length !== friends.length ||
+      filterState.venues.length !== VENUES.length || // 全選択状態かをVENUESと比較
       filterState.dateRange.from != null ||
-      filterState.dateRange.to != null ||
-      filterState.venues.length > 0
+      filterState.dateRange.to != null
     )
   }, [filterState])
 
@@ -345,6 +346,16 @@ export default function DashboardPage() {
 
   const myRaces = useMemo(() => groupTicketsByRace(filteredMyTickets, []), [filteredMyTickets])
   const friendRaces = useMemo(() => groupTicketsByRace([], filteredFriendTickets), [filteredFriendTickets])
+
+  const friendRaceTitle = useMemo(() => {
+    if (filterState.selectedFriendIds.length === 1) {
+      const selectedFriend = friends.find(f => f.id === filterState.selectedFriendIds[0]);
+      if (selectedFriend) {
+        return `${selectedFriend.name.toUpperCase()}'S RACES`;
+      }
+    }
+    return "FRIENDS' RACES";
+  }, [filterState.selectedFriendIds]);
 
   const nextRaceInfo = { venue: "東京", raceNumber: 11, time: "15:35" }
 
@@ -391,7 +402,7 @@ export default function DashboardPage() {
 
           <main className="pt-2 pb-6 px-3">
             {activeTab === "my" && <RaceList races={myRaces} title="MY RACES" variant="my" />}
-            {activeTab === "friend" && <RaceList races={friendRaces} title="FRIENDS' RACES" variant="friend" />}
+            {activeTab === "friend" && <RaceList races={friendRaces} title={friendRaceTitle} variant="friend" />}
             {activeTab === "analysis" && (
               <div className="glass-panel p-6 text-center">
                 <p className="text-muted-foreground">分析機能は準備中です</p>
@@ -404,7 +415,7 @@ export default function DashboardPage() {
           {/* Race Lists - Side by Side */}
           <div className="grid grid-cols-2 gap-4">
             <RaceList races={myRaces} title="MY RACES" variant="my" />
-            <RaceList races={friendRaces} title="FRIENDS' RACES" variant="friend" />
+            <RaceList races={friendRaces} title={friendRaceTitle} variant="friend" />
           </div>
         </main>
       )}

@@ -98,15 +98,11 @@ export function FilterModal({ friends, filterState, onApplyFilters, hasActiveFil
                   className={cn(
                     "py-2 text-xs font-bold tracking-wider transition-all",
                     localFilters.displayMode === mode
-                      ? mode === "REAL"
-                        ? "bg-[#ff003c]/20 text-[#ff003c] border border-[#ff003c]/50"
-                        : mode === "AIR"
-                          ? "bg-[#00f3ff]/20 text-[#00f3ff] border border-[#00f3ff]/50"
-                          : "bg-white/10 text-foreground border border-white/30"
+                      ? "bg-[#00f3ff]/20 text-[#00f3ff] border border-[#00f3ff]/50"
                       : "text-muted-foreground hover:bg-white/5",
                   )}
                 >
-                  {mode === "BOTH" ? "ALL" : mode}
+                  {mode === "REAL" ? "実際の購入データのみ" : mode === "AIR" ? "エア購入馬券のみ" : "すべて表示"}
                 </button>
               ))}
             </div>
@@ -193,7 +189,7 @@ export function FilterModal({ friends, filterState, onApplyFilters, hasActiveFil
                     className={cn(
                       "py-1.5 text-[10px] font-bold transition-all border",
                       isSelected
-                        ? "bg-[#ff003c]/15 border-[#ff003c]/50 text-[#ff003c]"
+                        ? "bg-[#00f3ff]/20 text-[#00f3ff] border border-[#00f3ff]/50"
                         : "bg-black/30 border-white/10 text-muted-foreground hover:border-white/30",
                     )}
                   >

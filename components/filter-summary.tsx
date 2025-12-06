@@ -16,6 +16,12 @@ export function FilterSummary({ filterState, friends, className }: FilterSummary
     })
   }
 
+  const displayModeMap = {
+    REAL: "実際の購入データのみ",
+    AIR: "エア購入馬券のみ",
+    BOTH: "すべて表示",
+  }
+
   // Construct a single string for the date range if it exists
   let dateRangeString = ""
   if (filterState.dateRange.from && filterState.dateRange.to) {
@@ -27,7 +33,7 @@ export function FilterSummary({ filterState, friends, className }: FilterSummary
   }
 
   const filters = [
-    filterState.displayMode !== "BOTH" && `表示: ${filterState.displayMode}`,
+    filterState.displayMode !== "BOTH" && `表示: ${displayModeMap[filterState.displayMode]}`,
     filterState.venues.length > 0 && `開催地: ${filterState.venues.join(", ")}`,
     dateRangeString,
   ].filter(Boolean)
