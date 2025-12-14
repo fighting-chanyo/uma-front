@@ -1,32 +1,54 @@
+/**
+ * 買い目データの正規化フォーマット (tickets.content)
+ */
+export type TicketContent = {
+  /** 式別コード (例: 'TRIFECTA', 'WIN') */
+  type: string
+  /** 投票方式 ('NORMAL', 'BOX', 'FORMATION' 'NAGASHI') */
+  method: "NORMAL" | "BOX" | "FORMATION" | "NAGASHI"
+  /** マルチフラグ (true/false) */
+  multi?: boolean
+  /** 軸馬配列 (例: [1]) - ながし/フォーメーション用 */
+  axis?: number[]
+  /** 相手馬配列 (例: [2,3,4]) - ながし用 */
+  partners?: number[]
+  /** 選択馬の二次元配列 (例: [[1,2], [1,3], [2,3,4]]) - フォーメーション用 */
+  selections: number[][]
+}
+
+/**
+ * DBから取得したチケット情報と、関連情報をJOINしたUI用の型
+ */
 export interface Ticket {
-  id: string
-  raceName: string
-  raceDate: string
-  venue: string
-  raceNumber: number
-  raceTime?: string // 発走時刻を追加
-  betType: string
-  buyType: "BOX" | "NAGASHI" | "FORMATION"
-  content: {
-    "1st"?: string[]
-    "2nd"?: string[]
-    "3rd"?: string[]
-    horses?: string[]
-    axis?: string[]
-    partners?: string[]
-    multi?: boolean
-  }
-  amount: number
+  // ticketsテーブルの基本カラム
+  id: string // uuid
+  user_id: string // uuid
+  race_id: string
+  content: TicketContent
+  amount_per_point: number
+  total_points: number
+  total_cost: number
   status: "PENDING" | "WIN" | "LOSE"
+  payout: number
+  source: "IPAT_SYNC" | "IMAGE_OCR" | "MANUAL"
   mode: "REAL" | "AIR"
-  payout?: number
-  userName?: string
-  userAvatar?: string
-  userId?: string
+  created_at: string // timestamptz
+  receipt_unique_id?: string
+
+  // JOINしたprofilesテーブルの情報
+  user_name?: string
+  user_avatar?: string
+
+  // JOINしたracesテーブルの情報
+  race_name?: string
+  race_date?: string // `races.date` から取得
+  venue?: string // `races.venue` から取得
+  race_number?: number // `races.round` から取得
 }
 
 export interface Race {
   raceId: string
+  raceDate: string // この行を追加
   venue: string
   raceNumber: number
   raceName: string

@@ -4,7 +4,7 @@ import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { Trophy, X, Clock, ChevronRight } from "lucide-react"
 import { CompactBetVisualizer } from "./compact-bet-visualizer"
-import type { Ticket } from "@/types/ticket"
+import type { Ticket, TicketContent } from "@/types/ticket"
 
 interface TicketAccordionItemProps {
   ticket: Ticket
@@ -13,14 +13,44 @@ interface TicketAccordionItemProps {
 
 export const GRID_COLS = "grid grid-cols-[24px_80px_1fr_80px_24px]"
 
+const BET_TYPE_MAP: Record<string, string> = {
+  WIN: "単勝",
+  PLACE: "複勝",
+  QUINELLA_PLACE: "ワイド",
+  TRIFECTA: "3連単",
+  TRIO: "3連複",
+  BRACKET_QUINELLA: "枠連",
+  EXACTA: "馬単",
+  QUINELLA: "馬連",
+}
+
+const getBuyMethodLabel = (content: TicketContent): string => {
+  switch (content.method) {
+    case "BOX":
+      return "ボックス"
+    case "FORMATION":
+      return "フォーメーション"
+    case "NAGASHI": {
+      const isMulti = content.multi
+      const isTwoAxis = content.axis && content.axis.length === 2
+      if (isTwoAxis) {
+        return isMulti ? "2頭軸流し(マルチ)" : "2頭軸流し"
+      }
+      return isMulti ? "流し(マルチ)" : "流し"
+    }
+    default:
+      return content.method // NORMALなどそのまま表示
+  }
+}
+
 export function TicketAccordionItem({ ticket, index }: TicketAccordionItemProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const isWin = ticket.status === "WIN"
   const isLose = ticket.status === "LOSE"
   const isPending = ticket.status === "PENDING"
 
-  // 買い方の日本語表記
-  const buyTypeLabel = ticket.buyType === "BOX" ? "ボックス" : ticket.buyType === "NAGASHI" ? "流し" : "フォメ"
+  const betTypeLabel = BET_TYPE_MAP[ticket.content.type] || ticket.content.type
+  const buyTypeLabel = getBuyMethodLabel(ticket.content)
 
   return (
     <div
@@ -44,27 +74,37 @@ export function TicketAccordionItem({ ticket, index }: TicketAccordionItemProps)
         {/* Column 2: 場所+R (固定幅) */}
         <div className="flex flex-col">
           <span className="text-xs font-bold text-foreground whitespace-nowrap">
-            {ticket.venue} {ticket.raceNumber}R
+            {ticket.venue} {ticket.race_number}R
           </span>
-          <span className="text-[9px] font-mono text-muted-foreground">{ticket.raceDate.replace(/\//g, ".")}</span>
+          <span className="text-[9px] font-mono text-muted-foreground">
+            {ticket.race_date?.replace(/\//g, ".")}
+          </span>
         </div>
 
         {/* Column 3: 券種 + 買い方 (可変幅) */}
         <div className="flex items-center gap-2 min-w-0 overflow-hidden">
           <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 bg-[#ff003c]/15 border border-[#ff003c]/30 text-[#ff003c] text-[9px] font-bold">
-            {ticket.betType}
+            {betTypeLabel}
           </span>
           <span className="shrink-0 inline-flex items-center px-1 py-0.5 bg-white/5 border border-white/20 text-[9px] font-mono text-muted-foreground">
             {buyTypeLabel}
           </span>
-          {ticket.userName && <span className="text-[9px] text-[#00f3ff]/70 truncate">@{ticket.userName}</span>}
+          {ticket.user_name && (
+            <span className="text-[9px] text-[#00f3ff]/70 truncate">
+              @{ticket.user_name}
+            </span>
+          )}
         </div>
 
         {/* Column 4: 金額 + ステータス (固定幅) */}
         <div className="flex flex-col items-end">
-          <span className="text-xs font-mono font-bold text-foreground">¥{ticket.amount.toLocaleString()}</span>
+          <span className="text-xs font-mono font-bold text-foreground">
+            ¥{ticket.total_cost.toLocaleString()}
+          </span>
           {isWin && ticket.payout && (
-            <span className="text-[10px] font-mono text-[#00ff41]">+¥{ticket.payout.toLocaleString()}</span>
+            <span className="text-[10px] font-mono text-[#00ff41]">
+              +¥{ticket.payout.toLocaleString()}
+            </span>
           )}
         </div>
 
@@ -86,9 +126,11 @@ export function TicketAccordionItem({ ticket, index }: TicketAccordionItemProps)
       >
         <div className="px-3 py-2 ml-[30px] bg-black/40 border-l border-white/10">
           {/* レース名 */}
-          <div className="text-[10px] text-muted-foreground mb-1">{ticket.raceName}</div>
+          <div className="text-[10px] text-muted-foreground mb-1">
+            {ticket.race_name}
+          </div>
 
-          <CompactBetVisualizer content={ticket.content} buyType={ticket.buyType} />
+          <CompactBetVisualizer content={ticket.content} />
 
           {/* WIN演出 */}
           {isWin && (

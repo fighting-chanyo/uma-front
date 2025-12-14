@@ -13,7 +13,7 @@ interface TicketListProps {
 export function TicketList({ tickets, title, isOwn }: TicketListProps) {
   const winCount = tickets.filter((t) => t.status === "WIN").length
   const totalPayout = tickets.reduce((sum, t) => sum + (t.payout || 0), 0)
-  const totalBet = tickets.reduce((sum, t) => sum + t.amount, 0)
+  const totalBet = tickets.reduce((sum, t) => sum + t.total_cost, 0)
 
   return (
     <div className="flex flex-col h-full">

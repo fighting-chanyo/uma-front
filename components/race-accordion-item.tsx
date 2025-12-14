@@ -13,6 +13,17 @@ interface RaceAccordionItemProps {
   variant?: "my" | "friend"
 }
 
+const BET_TYPE_MAP: Record<string, string> = {
+  WIN: "単勝",
+  PLACE: "複勝",
+  QUINELLA_PLACE: "ワイド",
+  TRIFECTA: "3連単",
+  TRIO: "3連複",
+  BRACKET_QUINELLA: "枠連",
+  EXACTA: "馬単",
+  QUINELLA: "馬連",
+}
+
 const statusConfig = {
   PENDING: { border: "border-l-[#00f3ff]", bg: "bg-[#00f3ff]/5", text: "text-[#00f3ff]", label: "PENDING" },
   WIN: { border: "border-l-[#00ff41]", bg: "bg-[#00ff41]/5", text: "text-[#00ff41]", label: "WIN" },
@@ -26,17 +37,16 @@ export function RaceAccordionItem({ race, index, variant = "my" }: RaceAccordion
   const myTickets = race.tickets.filter((t) => t.owner === "me")
   const friendTickets = race.tickets.filter((t) => t.owner === "friend")
 
-  const datePart = race.raceId.split("-")[0]
-  // 年を含めた形式に変更 (slice(5)を削除)
-  const formattedDate = datePart || ""
+  // ステップ1で型定義を修正したため、race.raceDateを直接利用できる
+  const formattedDate = race.raceDate ? race.raceDate.replace(/\//g, "-") : ""
 
   const friendTicketsByUser = friendTickets.reduce(
     (acc, ticket) => {
-      const key = ticket.userId || ticket.userName || "Unknown"
+      const key = ticket.user_id || ticket.user_name || "Unknown"
       if (!acc[key]) {
         acc[key] = {
-          userName: ticket.userName || "Unknown",
-          userAvatar: ticket.userAvatar,
+          userName: ticket.user_name || "Unknown",
+          userAvatar: ticket.user_avatar,
           tickets: [],
         }
       }
@@ -56,7 +66,7 @@ export function RaceAccordionItem({ race, index, variant = "my" }: RaceAccordion
         )}
       >
         <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground font-mono">{formattedDate}</span>
+             <span className="text-xs text-muted-foreground font-mono whitespace-nowrap">{formattedDate}</span>
           <span className="text-sm md:text-base font-bold text-foreground whitespace-nowrap tracking-wide">
             {race.venue} {race.raceNumber}R
           </span>
@@ -129,6 +139,7 @@ function TicketRow({ ticket }: { ticket: Ticket & { owner: "me" | "friend" } }) 
   }
 
   const isAir = ticket.mode === "AIR"
+  const betTypeLabel = BET_TYPE_MAP[ticket.content.type] || ticket.content.type
 
   return (
     <div
@@ -159,18 +170,19 @@ function TicketRow({ ticket }: { ticket: Ticket & { owner: "me" | "friend" } }) 
               : "text-yellow-400 bg-yellow-400/10 border-yellow-400/30",
           )}
         >
-          {ticket.betType}
+          {betTypeLabel}
         </span>
       </div>
 
       {/* Bet Content */}
       <div className="min-w-0">
-        <CompactBetVisualizer content={ticket.content} buyType={ticket.buyType} />
+        <CompactBetVisualizer content={ticket.content} />
       </div>
 
       {/* Amount / Payout */}
       <div className="text-right text-xs font-mono flex items-center justify-end gap-3 whitespace-nowrap">
-        <span className="text-muted-foreground">¥{ticket.amount.toLocaleString()}</span>
+        {/* データ変換が不完全な場合に備え、?? 0 でフォールバックしエラーを防ぐ */}
+        <span className="text-muted-foreground">¥{(ticket.total_cost ?? 0).toLocaleString()}</span>
         
         {ticket.status === "WIN" && ticket.payout && (
           <span className="text-[#00ff41] font-bold">

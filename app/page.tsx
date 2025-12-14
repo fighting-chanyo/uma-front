@@ -35,39 +35,49 @@ function groupTicketsByRace(myTickets: Ticket[], friendTickets: Ticket[]): Race[
   const raceMap = new Map<string, Race>()
 
   const processTicket = (ticket: Ticket, owner: "me" | "friend") => {
-    const raceId = `${ticket.raceDate}-${ticket.venue}-${ticket.raceNumber}`
+    // race_date が存在しない場合は race_id から年を抽出してフォールバック
+    const raceDate = ticket.race_date || ticket.race_id.substring(0, 4)
+    const raceId = ticket.race_id
 
     if (!raceMap.has(raceId)) {
       raceMap.set(raceId, {
-        raceId,
-        venue: ticket.venue,
-        raceNumber: ticket.raceNumber,
-        raceName: ticket.raceName,
-        raceTime: ticket.raceTime || "00:00",
+        raceId: raceId,
+        raceDate: raceDate, // raceDateプロパティを追加
+        venue: ticket.venue || "不明",
+        raceNumber: ticket.race_number || 0,
+        raceName: ticket.race_name || "レース情報なし",
+        raceTime: "00:00", // 仮
         totalBet: 0,
         totalReturn: 0,
-        status: "PENDING",
+        status: "PENDING", // 初期ステータス
         tickets: [],
       })
     }
 
     const race = raceMap.get(raceId)!
     race.tickets.push({ ...ticket, owner })
-    race.totalBet += ticket.amount
+
+    // レース全体のベット額とリターンを計算
+    race.totalBet += ticket.total_cost || 0
     race.totalReturn += ticket.payout || 0
 
-    if (ticket.status === "WIN") race.status = "WIN"
-    else if (ticket.status === "PENDING" && race.status !== "WIN") race.status = "PENDING"
-    else if (race.status !== "WIN" && race.status !== "PENDING") race.status = "LOSE"
+    // レース全体のステータスを更新
+    // 1つでもWINがあればWIN、そうでなければ1つでもPENDINGがあればPENDING、それ以外はLOSE
+    if (ticket.status === "WIN") {
+      race.status = "WIN"
+    } else if (ticket.status === "PENDING" && race.status !== "WIN") {
+      race.status = "PENDING"
+    } else if (ticket.status === "LOSE" && race.status !== "WIN" && race.status !== "PENDING") {
+      race.status = "LOSE"
+    }
   }
 
   myTickets.forEach((t) => processTicket(t, "me"))
   friendTickets.forEach((t) => processTicket(t, "friend"))
 
+  // 日付とレース番号でソート
   return Array.from(raceMap.values()).sort((a, b) => {
-    const dateA = a.raceId.split("-")[0]
-    const dateB = b.raceId.split("-")[0]
-    if (dateA !== dateB) return dateB.localeCompare(dateA)
+    if (a.raceDate !== b.raceDate) return b.raceDate.localeCompare(a.raceDate)
     return b.raceNumber - a.raceNumber
   })
 }
@@ -138,21 +148,34 @@ export default function DashboardPage() {
 
         console.log("Debug: myTicketsData raw", myTicketsData); // 追加
 
-        const mappedMyTickets: Ticket[] = (myTicketsData || []).map((t: any) => ({
+        const mapTicketData = (t: any): Ticket => ({
+          // ticketsテーブルの全カラムをマッピング
           id: t.id,
-          raceName: t.races?.name || '',
-          raceDate: t.races?.date || '',
-          venue: getVenueName(t.races?.place_code || ''),
-          raceNumber: t.races?.race_number || 0,
-          raceTime: "00:00", // DBに時刻がない場合は仮置き
-          betType: t.bet_type,
-          buyType: t.buy_type,
+          user_id: t.user_id,
+          race_id: t.race_id,
           content: t.content,
-          amount: t.total_cost, // total_costを使用
+          amount_per_point: t.amount_per_point,
+          total_points: t.total_points,
+          total_cost: t.total_cost,
           status: t.status,
+          payout: t.payout,
+          source: t.source,
           mode: t.mode,
-          payout: t.payout || 0,
-        }))
+          created_at: t.created_at,
+          receipt_unique_id: t.receipt_unique_id,
+
+          // JOINしたracesテーブルの情報
+          race_name: t.races?.name || '',
+          race_date: t.races?.date || '',
+          venue: getVenueName(t.races?.place_code || ''),
+          race_number: t.races?.race_number || 0,
+
+          // JOINしたprofilesテーブルの情報 (フレンドチケット用)
+          user_name: t.profiles?.display_name || undefined,
+          user_avatar: t.profiles?.avatar_url || undefined,
+        })
+
+        const mappedMyTickets: Ticket[] = (myTicketsData || []).map(mapTicketData)
         setMyTickets(mappedMyTickets)
 
         // 3. フレンドのチケット取得
@@ -172,24 +195,7 @@ export default function DashboardPage() {
           
           if (friendTicketsError) throw friendTicketsError
 
-          const mappedFriendTickets: Ticket[] = (friendTicketsData || []).map((t: any) => ({
-            id: t.id,
-            raceName: t.races?.name || '',
-            raceDate: t.races?.date || '',
-            venue: getVenueName(t.races?.place_code || ''),
-            raceNumber: t.races?.race_number || 0,
-            raceTime: "00:00",
-            betType: t.bet_type,
-            buyType: t.buy_type,
-            content: t.content,
-            amount: t.total_cost,
-            status: t.status,
-            mode: t.mode,
-            payout: t.payout || 0,
-            userName: t.profiles?.display_name || 'Unknown',
-            userId: t.user_id,
-            userAvatar: t.profiles?.avatar_url
-          }))
+          const mappedFriendTickets: Ticket[] = (friendTicketsData || []).map(mapTicketData)
           setFriendTickets(mappedFriendTickets)
         }
 
@@ -206,35 +212,39 @@ export default function DashboardPage() {
     const allTickets = [...myTickets, ...friendTickets];
     if (allTickets.length > 0) {
       const latestDate = allTickets.reduce((latest, ticket) => {
-        const ticketDate = new Date(ticket.raceDate);
-        return ticketDate > latest ? ticketDate : latest;
+        // ticket.race_date が存在する場合のみ比較
+        if (ticket.race_date) {
+          const ticketDate = new Date(ticket.race_date);
+          return ticketDate > latest ? ticketDate : latest;
+        }
+        return latest;
       }, new Date(0));
 
-      const dayOfWeek = latestDate.getDay(); // 0 (Sun) - 6 (Sat)
-      
-      // 直近の土曜日を探す
-      const lastSaturday = new Date(latestDate);
-      lastSaturday.setDate(latestDate.getDate() - (dayOfWeek + 1) % 7);
-      
-      // 直近の日曜日を探す
-      const lastSunday = new Date(lastSaturday);
-      lastSunday.setDate(lastSaturday.getDate() + 1);
+      // 有効な日付がある場合のみ実行
+      if (latestDate.getTime() !== new Date(0).getTime()) {
+        const dayOfWeek = latestDate.getDay(); // 0 (Sun) - 6 (Sat)
+        
+        // 直近の土曜日を探す
+        const lastSaturday = new Date(latestDate);
+        lastSaturday.setDate(latestDate.getDate() - (dayOfWeek + 1) % 7);
+        
+        // 直近の日曜日を探す
+        const lastSunday = new Date(lastSaturday);
+        lastSunday.setDate(lastSaturday.getDate() + 1);
 
-      // 初回のみ設定したいが、ticketsがロードされるタイミングで実行する必要がある
-      // ユーザーが手動で変更した後も上書きしないようにチェックが必要だが、
-      // ここでは簡易的に「dateRangeがnullの場合」のみ設定する
-      setFilterState(prevState => {
-        if (prevState.dateRange.from === null && prevState.dateRange.to === null) {
-          return {
-            ...prevState,
-            dateRange: {
-              from: lastSaturday,
-              to: lastSunday,
+        setFilterState(prevState => {
+          if (prevState.dateRange.from === null && prevState.dateRange.to === null) {
+            return {
+              ...prevState,
+              dateRange: {
+                from: lastSaturday,
+                to: lastSunday,
+              }
             }
           }
-        }
-        return prevState
-      });
+          return prevState
+        });
+      }
     }
   }, [myTickets, friendTickets]);
 
@@ -251,8 +261,9 @@ export default function DashboardPage() {
   const applyFilters = (tickets: Ticket[]) => {
     return tickets.filter((ticket) => {
       if (filterState.displayMode !== "BOTH" && ticket.mode !== filterState.displayMode) return false
-      if (filterState.venues.length > 0 && !filterState.venues.includes(ticket.venue)) return false
-      const ticketDate = new Date(ticket.raceDate)
+      if (!ticket.venue || (filterState.venues.length > 0 && !filterState.venues.includes(ticket.venue))) return false
+      if (!ticket.race_date) return false // race_dateがないチケットは除外
+      const ticketDate = new Date(ticket.race_date)
       if (filterState.dateRange.from && ticketDate < filterState.dateRange.from) return false
       if (filterState.dateRange.to && ticketDate > filterState.dateRange.to) return false
       return true
@@ -261,7 +272,7 @@ export default function DashboardPage() {
 
   const filteredMyTickets = useMemo(() => applyFilters(myTickets), [filterState, myTickets])
   const filteredFriendTickets = useMemo(() => {
-    const byFriend = friendTickets.filter((t) => t.userId && filterState.selectedFriendIds.includes(t.userId))
+    const byFriend = friendTickets.filter((t) => t.user_id && filterState.selectedFriendIds.includes(t.user_id))
     return applyFilters(byFriend)
   }, [filterState, friendTickets])
 
