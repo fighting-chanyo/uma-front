@@ -57,7 +57,15 @@ export function RaceAccordionItem({ race, index, variant = "my" }: RaceAccordion
   )
 
   return (
-    <div className={cn(index % 2 === 0 ? "bg-white/[0.01]" : "bg-transparent")}>
+    <div
+      className={cn(
+        "transition-all duration-300 ease-in-out",
+        isOpen
+          ? "border border-[#00f3ff]/50 bg-black/30 rounded-md m-1"
+          : "border-b border-white/5",
+        !isOpen && (index % 2 === 0 ? "bg-white/[0.01]" : "bg-transparent"),
+      )}
+    >
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
@@ -93,7 +101,7 @@ export function RaceAccordionItem({ race, index, variant = "my" }: RaceAccordion
 
       {/* Expanded Content */}
       {isOpen && (
-        <div className="border-t border-white/5 bg-black/30">
+        <div className="border-t border-white/5">
           {variant === "my" && myTickets.length > 0 && (
             <div>
               {myTickets.map((ticket) => (
@@ -146,12 +154,15 @@ function TicketRow({ ticket }: { ticket: Ticket & { owner: "me" | "friend" } }) 
       className={cn(
         "grid grid-cols-[auto_1fr_80px] gap-3 px-3 py-1 items-center",
         "transition-colors",
+        "border-b border-dotted border-gray/40", // はっきりとした白い境界線
+        "last:border-b-0", // 最後の項目には境界線なし
+
+        // 条件に応じてスタイルを適用
         isAir
-          ? [
-              "bg-white/[0.08]", // 背景色を明るめに変更
-              "border-l-2 border-dashed border-white/40", // ボーダーを少し強調
-            ]
-          : ["hover:bg-white/[0.02]", ticket.owner === "friend" && "bg-[#ff003c]/[0.02]"],
+          ? "bg-white/[0.08] border-l-2 border-dashed border-white/40" // エア馬券のスタイル
+          : ticket.owner === "friend"
+          ? "bg-[#60494c] hover:bg-[#79616e]" // フレンドの馬券スタイル
+          : "bg-[#202020] hover:bg-[#2d2d2d]", // デフォルトの自分の馬券スタイル
       )}
     >
       {/* Status + Bet Type + Mode Badge */}

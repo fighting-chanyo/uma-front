@@ -19,23 +19,25 @@ export function RaceList({ races, title, variant = "my" }: RaceListProps) {
   const { totalBet, totalReturn, winCount } = useMemo(() => {
     let bet = 0
     let ret = 0
-    let wins = 0
+    const winningRaceIds = new Set<string>() // レース単位での勝利をカウントするため
 
     races.forEach((race) => {
       race.tickets.forEach((ticket) => {
-        if (variant === "my" && ticket.owner === "me") {
-          bet += ticket.amount
+        // variantとticket.ownerをチェックして、対象のチケットのみ集計
+        if (
+          (variant === "my" && ticket.owner === "me") ||
+          (variant === "friend" && ticket.owner === "friend")
+        ) {
+          bet += ticket.total_cost // ERROR: `amount`から`total_cost`に修正
           ret += ticket.payout || 0
-          if (ticket.status === "WIN") wins++
-        } else if (variant === "friend" && ticket.owner === "friend") {
-          bet += ticket.amount
-          ret += ticket.payout || 0
-          if (ticket.status === "WIN") wins++
+          if (ticket.status === "WIN") {
+            winningRaceIds.add(race.raceId) // 的中したレースIDをセットに追加
+          }
         }
       })
     })
 
-    return { totalBet: bet, totalReturn: ret, winCount: wins }
+    return { totalBet: bet, totalReturn: ret, winCount: winningRaceIds.size }
   }, [races, variant])
 
   const balance = totalReturn - totalBet
