@@ -77,7 +77,7 @@ export function Header({
               <p className="text-sm font-medium">{userProfile?.name || ""}</p>
             </div>
             <Avatar className="h-8 w-8 border border-[#00f3ff]/30">
-              <AvatarImage src={userProfile?.avatarUrl || "/placeholder-avatar.jpg"} />
+              {userProfile?.avatarUrl && <AvatarImage src={userProfile.avatarUrl} />}
               <AvatarFallback className="bg-[#00f3ff]/10 text-[#00f3ff]">
                 <User className="h-4 w-4" />
               </AvatarFallback>

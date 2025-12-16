@@ -1,11 +1,13 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { RaceAccordionItem } from "./race-accordion-item"
 import { Button } from "@/components/ui/button"
 import { RefreshCw, ScanLine, PenLine, Loader2 } from "lucide-react"
 import type { Race } from "@/types/ticket"
+import { checkIpatAuth, syncIpat } from "@/app/actions/ipat-sync"
+import { IpatAuthForm, type IpatAuthData } from "@/components/ipat-auth-form"
 import {
   Dialog,
   DialogContent,
@@ -24,32 +26,72 @@ interface RaceListProps {
 export function RaceList({ races, title, variant = "my" }: RaceListProps) {
   const [isSyncing, setIsSyncing] = useState(false)
   const [isIpatDialogOpen, setIsIpatDialogOpen] = useState(false)
+  const [hasAuth, setHasAuth] = useState<boolean | null>(null)
+
+  // 編集モードを管理するためのStateを追加
+  const [isEditingAuth, setIsEditingAuth] = useState(false)
+  const [currentAuth, setCurrentAuth] = useState<IpatAuthData | null>(null)
+
+  useEffect(() => {
+    // ダイアログが開かれ、かつ編集モードでない場合に認証状態をチェック
+    if (isIpatDialogOpen && !isEditingAuth) {
+      setHasAuth(null)
+      checkIpatAuth().then(setHasAuth)
+    }
+  }, [isIpatDialogOpen, isEditingAuth])
 
   const handleIpatSync = async (mode: "past" | "today") => {
     setIsIpatDialogOpen(false)
     setIsSyncing(true)
-    // TODO: Implement actual IPAT sync logic here
-    console.log(`Syncing IPAT mode: ${mode}`)
-    await new Promise((r) => setTimeout(r, 2000))
-    setIsSyncing(false)
+    
+    try {
+      const result = await syncIpat(mode)
+      if (result.success) {
+        console.log(`Sync started: ${result.logId}`)
+      } else {
+        console.error(result.error)
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+  
+  // 編集ボタンがクリックされたときの処理
+  const handleEditClick = async () => {
+    setIsEditingAuth(true)
+    setCurrentAuth(null) // 既存のデータを取得するまでローダーを表示
+    try {
+      const res = await fetch('/api/ipat-auth')
+      if (res.ok) {
+        const data = await res.json()
+        setCurrentAuth(data.ipatAuth)
+      } else {
+        console.error('Failed to fetch IPAT auth data')
+        setIsEditingAuth(false) // エラー時は同期モード選択画面に戻る
+      }
+    } catch (error) {
+      console.error('Failed to fetch IPAT auth data', error)
+      setIsEditingAuth(false)
+    }
   }
 
   const { totalBet, totalReturn, winCount } = useMemo(() => {
     let bet = 0
     let ret = 0
-    const winningRaceIds = new Set<string>() // レース単位での勝利をカウントするため
+    const winningRaceIds = new Set<string>()
 
     races.forEach((race) => {
       race.tickets.forEach((ticket) => {
-        // variantとticket.ownerをチェックして、対象のチケットのみ集計
         if (
           (variant === "my" && ticket.owner === "me") ||
           (variant === "friend" && ticket.owner === "friend")
         ) {
-          bet += ticket.total_cost // ERROR: `amount`から`total_cost`に修正
+          bet += ticket.total_cost
           ret += ticket.payout || 0
           if (ticket.status === "WIN") {
-            winningRaceIds.add(race.raceId) // 的中したレースIDをセットに追加
+            winningRaceIds.add(race.raceId)
           }
         }
       })
@@ -76,7 +118,6 @@ export function RaceList({ races, title, variant = "my" }: RaceListProps) {
           <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-[#00f3ff]/50" />
 
           <div className="flex flex-col justify-between h-full">
-            {/* Title + Financial Info */}
             <div className="flex items-center gap-3 md:gap-4 flex-wrap">
               <h2 className="text-sm md:text-base font-bold tracking-[0.15em] text-foreground uppercase">{title}</h2>
               <div className="flex items-center gap-2 text-[10px] md:text-xs font-mono">
@@ -103,7 +144,13 @@ export function RaceList({ races, title, variant = "my" }: RaceListProps) {
 
         {variant === "my" && (
           <div className="flex items-center gap-1">
-            <Dialog open={isIpatDialogOpen} onOpenChange={setIsIpatDialogOpen}>
+            <Dialog open={isIpatDialogOpen} onOpenChange={(open) => {
+                setIsIpatDialogOpen(open);
+                if (!open) {
+                    // ダイアログが閉じる時に編集モードをリセット
+                    setIsEditingAuth(false);
+                }
+            }}>
               <DialogTrigger asChild>
                 <Button
                   variant="ghost"
@@ -120,33 +167,72 @@ export function RaceList({ races, title, variant = "my" }: RaceListProps) {
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px] bg-black/90 border-[#00f3ff]/20 text-white">
                 <DialogHeader>
-                  <DialogTitle className="text-[#00f3ff]">同期モード選択</DialogTitle>
+                  <DialogTitle className="text-[#00f3ff]">
+                    {hasAuth === false
+                      ? "IPAT認証設定"
+                      : isEditingAuth
+                      ? "IPAT認証情報の編集"
+                      : "同期モード選択"}
+                  </DialogTitle>
                   <DialogDescription className="text-gray-400">
-                    同期するデータの範囲を選択してください。
+                    {hasAuth === false
+                      ? "IPAT連携のために認証情報を設定してください。"
+                      : isEditingAuth
+                      ? "新しい認証情報を入力し、更新してください。"
+                      : "同期するデータの範囲を選択してください。"}
                   </DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <Button
-                    variant="outline"
-                    className="flex flex-col items-start h-auto p-4 border-white/10 hover:bg-white/5 hover:text-[#00f3ff] hover:border-[#00f3ff]/50 transition-all"
-                    onClick={() => handleIpatSync("today")}
-                  >
-                    <span className="font-bold mb-1">今日の馬券</span>
-                    <span className="text-xs text-gray-400 font-normal text-left whitespace-normal">
-                      本日購入した馬券データを同期します。
-                    </span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="flex flex-col items-start h-auto p-4 border-white/10 hover:bg-white/5 hover:text-[#00f3ff] hover:border-[#00f3ff]/50 transition-all"
-                    onClick={() => handleIpatSync("past")}
-                  >
-                    <span className="font-bold mb-1">前日までの馬券</span>
-                    <span className="text-xs text-gray-400 font-normal text-left whitespace-normal">
-                      過去60日以内にIPATで購入した馬券データを取得します。（今日分のデータは取得できません）
-                    </span>
-                  </Button>
-                </div>
+                
+                {hasAuth === null ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="w-8 h-8 animate-spin text-[#00f3ff]" />
+                  </div>
+                ) : hasAuth === false ? (
+                  <IpatAuthForm onSuccess={() => setHasAuth(true)} />
+                ) : isEditingAuth ? (
+                  currentAuth ? (
+                    <IpatAuthForm
+                      initialData={currentAuth}
+                      onSuccess={() => {
+                        setIsEditingAuth(false)
+                      }}
+                    />
+                  ) : (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="w-8 h-8 animate-spin text-[#00f3ff]" />
+                    </div>
+                  )
+                ) : (
+                  <>
+                    <div className="grid gap-4 py-4">
+                      <Button
+                        variant="outline"
+                        className="flex flex-col items-start h-auto p-4 border-white/10 hover:bg-white/5 hover:text-[#00f3ff] hover:border-[#00f3ff]/50 transition-all"
+                        onClick={() => handleIpatSync("today")}
+                      >
+                        <span className="font-bold mb-1">今日の馬券</span>
+                        <span className="text-xs text-gray-400 font-normal text-left whitespace-normal">
+                          本日購入した馬券データを同期します。
+                        </span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex flex-col items-start h-auto p-4 border-white/10 hover:bg-white/5 hover:text-[#00f3ff] hover:border-[#00f3ff]/50 transition-all"
+                        onClick={() => handleIpatSync("past")}
+                      >
+                        <span className="font-bold mb-1">前日までの馬券</span>
+                        <span className="text-xs text-gray-400 font-normal text-left whitespace-normal">
+                          過去60日以内にIPATで購入した馬券データを取得します。（今日分のデータは取得できません）
+                        </span>
+                      </Button>
+                    </div>
+                    <div className="text-center mt-2">
+                        <Button variant="link" onClick={handleEditClick} className="text-xs text-gray-400 hover:text-white">
+                            IPAT認証情報を編集する
+                        </Button>
+                    </div>
+                  </>
+                )}
               </DialogContent>
             </Dialog>
             <Button
@@ -171,7 +257,6 @@ export function RaceList({ races, title, variant = "my" }: RaceListProps) {
         )}
       </div>
 
-      {/* Race List */}
       <div className="flex-1 overflow-y-auto max-h-[calc(100vh-280px)] border border-white/10 bg-black/20">
         <div
           className={cn(
@@ -186,7 +271,6 @@ export function RaceList({ races, title, variant = "my" }: RaceListProps) {
           <span></span>
         </div>
 
-        {/* Race Items */}
         {races.length > 0 ? (
           races.map((race, index) => (
             <RaceAccordionItem key={race.raceId} race={race} index={index} variant={variant} />

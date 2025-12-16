@@ -145,7 +145,7 @@ export default function DashboardPage() {
           const mappedFriends: Friend[] = (profilesData || []).map(p => ({
             id: p.id,
             name: p.display_name || 'Unknown',
-            avatar: p.avatar_url || '/placeholder-avatar.jpg' // デフォルトアバター
+            avatar: p.avatar_url || '' // デフォルトアバターを削除
           }))
           setFriends(mappedFriends)
           

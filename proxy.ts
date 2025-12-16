@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 
 import type { NextRequest } from "next/server"
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   let res = NextResponse.next({
     request: {
       headers: req.headers,
@@ -41,22 +41,22 @@ export async function middleware(req: NextRequest) {
   )
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+  } = await supabase.auth.getUser()
 
   // ログインページと認証関連のルート以外でセッションがない場合は、ログインページにリダイレクト
-  if (!session && req.nextUrl.pathname !== "/login" && !req.nextUrl.pathname.startsWith("/auth")) {
+  if (!user && req.nextUrl.pathname !== "/login" && !req.nextUrl.pathname.startsWith("/auth")) {
     const redirectUrl = req.nextUrl.clone()
     redirectUrl.pathname = "/login"
     return NextResponse.redirect(redirectUrl)
   }
 
   // ログイン済みでプロフィールが未設定の場合、プロフィール設定ページにリダイレクト
-  if (session && req.nextUrl.pathname !== "/profile/setup") {
+  if (user && req.nextUrl.pathname !== "/profile/setup") {
     const { data: profile } = await supabase
       .from("profiles")
       .select("display_name")
-      .eq("id", session.user.id)
+      .eq("id", user.id)
       .single()
 
     if (!profile?.display_name) {
