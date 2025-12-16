@@ -359,20 +359,29 @@ export function AuthForm() {
             0 0 60px rgba(255, 0, 0, 0.6);
         }
 
-        .text-flow-keiba {
-          color: #00ffff;
-          text-shadow: 0 0 20px rgba(0, 255, 255, 1),
-            0 0 40px rgba(0, 255, 255, 0.8),
-            0 0 60px rgba(0, 255, 255, 0.6);
+        .text-flow {
+          display: flex;
+          gap: 3rem;
+          font-size: 6rem;
+          font-weight: 900;
+          font-family: monospace;
+          white-space: nowrap;
+          position: absolute;
+          /* 変更点: left:0 ではなく transformで制御し、画面左外から開始 */
+          left: 0;
+          transform: translateX(-100%);
+          /* 変更点: 2.5s→1.2sに短縮し、linearで等速（または加速）させて疾走感を出す */
+          animation: textFlow 1.2s 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
         }
 
-        /* 文字が帯の左端から右端まで完全に流れきるように修正 */
+        /* 変更点: 左の外側(-100%)から、右の外側まで一気に突き抜ける動きに変更 */
         @keyframes textFlow {
           0% {
-            left: 0%;
+            transform: translateX(-100%);
           }
           100% {
-            left: 100%;
+            /* 画面幅以上に大きく移動させる（px指定で確実に画面外へ飛ばす） */
+            transform: translateX(120vw);
           }
         }
 

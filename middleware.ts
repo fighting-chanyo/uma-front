@@ -51,6 +51,21 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
+  // ログイン済みでプロフィールが未設定の場合、プロフィール設定ページにリダイレクト
+  if (session && req.nextUrl.pathname !== "/profile/setup") {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", session.user.id)
+      .single()
+
+    if (!profile?.display_name) {
+      const redirectUrl = req.nextUrl.clone()
+      redirectUrl.pathname = "/profile/setup"
+      return NextResponse.redirect(redirectUrl)
+    }
+  }
+
   return res
 }
 
