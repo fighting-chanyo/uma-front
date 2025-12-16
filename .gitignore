@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/other/API設計書.md
+/other/IPAT_Cookie設計書.md
