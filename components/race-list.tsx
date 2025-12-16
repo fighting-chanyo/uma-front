@@ -16,14 +16,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { supabase } from "@/lib/supabase"
+import { useToast } from "@/hooks/use-toast"
 
 interface RaceListProps {
   races: Race[]
   title: string
   variant?: "my" | "friend"
+  onSyncComplete?: () => void // 追加
 }
 
-export function RaceList({ races, title, variant = "my" }: RaceListProps) {
+export function RaceList({ races, title, variant = "my", onSyncComplete }: RaceListProps) { // 追加
+  const { toast } = useToast()
   const [isSyncing, setIsSyncing] = useState(false)
   const [isIpatDialogOpen, setIsIpatDialogOpen] = useState(false)
   const [hasAuth, setHasAuth] = useState<boolean | null>(null)
@@ -46,14 +50,66 @@ export function RaceList({ races, title, variant = "my" }: RaceListProps) {
     
     try {
       const result = await syncIpat(mode)
-      if (result.success) {
+      if (result.success && result.logId) {
         console.log(`Sync started: ${result.logId}`)
+        
+        toast({
+          title: "同期開始",
+          description: "IPATからのデータ取得を開始しました。完了までお待ちください。",
+        })
+
+        const channel = supabase
+          .channel(`sync_log_${result.logId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'sync_logs',
+              filter: `id=eq.${result.logId}`,
+            },
+            (payload) => {
+              const newStatus = payload.new.status
+              const message = payload.new.message
+              
+              if (newStatus === 'COMPLETED') {
+                toast({
+                  title: "同期完了",
+                  description: message || "データの同期が完了しました。",
+                  className: "border-[#00ff41] text-[#00ff41]",
+                })
+                setIsSyncing(false)
+                supabase.removeChannel(channel)
+                if (onSyncComplete) onSyncComplete() // 追加: 完了時にデータ再取得を要求
+              } else if (newStatus === 'ERROR') {
+                toast({
+                  title: "同期エラー",
+                  description: message || "同期中にエラーが発生しました。",
+                  variant: "destructive",
+                })
+                setIsSyncing(false)
+                supabase.removeChannel(channel)
+              }
+            }
+          )
+          .subscribe()
+
       } else {
         console.error(result.error)
+        toast({
+          title: "同期開始エラー",
+          description: result.error || "同期を開始できませんでした。",
+          variant: "destructive",
+        })
+        setIsSyncing(false)
       }
     } catch (e) {
       console.error(e)
-    } finally {
+      toast({
+        title: "エラー",
+        description: "予期せぬエラーが発生しました。",
+        variant: "destructive",
+      })
       setIsSyncing(false)
     }
   }
@@ -212,7 +268,7 @@ export function RaceList({ races, title, variant = "my" }: RaceListProps) {
                       >
                         <span className="font-bold mb-1">今日の馬券</span>
                         <span className="text-xs text-gray-400 font-normal text-left whitespace-normal">
-                          本日購入した馬券データを同期します。
+                          本日購入した馬券データを同期します。（投票受付時間外の場合、動作せずエラーになります。）
                         </span>
                       </Button>
                       <Button

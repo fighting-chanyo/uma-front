@@ -19,6 +19,8 @@ export const viewport: Viewport = {
   initialScale: 1,
 }
 
+import { Toaster } from "@/components/ui/toaster"
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -28,6 +30,7 @@ export default function RootLayout({
     <html lang="ja">
       <body className="font-sans antialiased bg-[#050505] min-h-screen overflow-x-hidden">
         {children}
+        <Toaster />
         <Analytics />
       </body>
     </html>

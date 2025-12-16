@@ -10,6 +10,7 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import type { Ticket, Friend, FilterState, Race } from "@/types/ticket"
 import { VENUES } from "@/types/ticket"
 import { supabase } from "@/lib/supabase"
+import { useToast } from "@/hooks/use-toast"
 
 // FilterStateのdateRangeの型定義を修正
 export interface UpdatedFilterState extends Omit<FilterState, 'dateRange'> {
@@ -83,6 +84,7 @@ function groupTicketsByRace(myTickets: Ticket[], friendTickets: Ticket[]): Race[
 }
 
 export default function DashboardPage() {
+  const { toast } = useToast()
   const isMobile = useIsMobile()
   const [activeTab, setActiveTab] = useState<"my" | "friend" | "analysis">("my")
   const [isFriendModalOpen, setIsFriendModalOpen] = useState(false)
@@ -100,8 +102,58 @@ export default function DashboardPage() {
     venues: [...VENUES],
   })
 
+  // チケットデータマッピング関数を外に出すか、useCallbackで定義
+  const mapTicketData = (t: any): Ticket => ({
+    id: t.id,
+    user_id: t.user_id,
+    race_id: t.race_id,
+    content: t.content,
+    amount_per_point: t.amount_per_point,
+    total_points: t.total_points,
+    total_cost: t.total_cost,
+    status: t.status,
+    payout: t.payout,
+    source: t.source,
+    mode: t.mode,
+    created_at: t.created_at,
+    receipt_unique_id: t.receipt_unique_id,
+    race_name: t.races?.name || '',
+    race_date: t.races?.date || '',
+    venue: getVenueName(t.races?.place_code || ''),
+    race_number: t.races?.race_number || 0,
+    user_name: t.profiles?.display_name || undefined,
+    user_avatar: t.profiles?.avatar_url || undefined,
+  })
+
+  // 自分のチケットを再取得する関数
+  const fetchMyTickets = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: myTicketsData, error: myTicketsError } = await supabase
+        .from('tickets')
+        .select(`
+          *,
+          races (
+            name, date, place_code, race_number, result_1st
+          )
+        `)
+        .eq('user_id', user.id)
+      
+      if (myTicketsError) throw myTicketsError
+
+      const mappedMyTickets: Ticket[] = (myTicketsData || []).map(mapTicketData)
+      setMyTickets(mappedMyTickets)
+    } catch (error) {
+      console.error('Error refreshing tickets:', error)
+    }
+  }
+
   // データ取得
   useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
     async function fetchData() {
       try {
         // 0. ログインユーザーの取得
@@ -153,50 +205,58 @@ export default function DashboardPage() {
           setFilterState(prev => ({ ...prev, selectedFriendIds: mappedFriends.map(f => f.id) }))
         }
 
-        // 2. 自分のチケット取得
-        const { data: myTicketsData, error: myTicketsError } = await supabase
-          .from('tickets')
-          .select(`
-            *,
-            races (
-              name, date, place_code, race_number, result_1st
-            )
-          `)
-          .eq('user_id', currentUserId)
-        
-        if (myTicketsError) throw myTicketsError
+        // 2. 自分のチケット取得 (初期ロード)
+        await fetchMyTickets()
 
-        console.log("Debug: myTicketsData raw", myTicketsData); // 追加
+        // リアルタイム更新の購読 (INSERT と UPDATE を監視)
+        channel = supabase
+          .channel('tickets_realtime')
+          .on(
+            'postgres_changes',
+            {
+              event: '*', // INSERTだけでなく全イベントを監視（または 'INSERT', 'UPDATE'）
+              schema: 'public',
+              table: 'tickets',
+              filter: `user_id=eq.${currentUserId}`,
+            },
+            async (payload) => {
+              // DELETEの場合はリストから削除
+              if (payload.eventType === 'DELETE') {
+                 setMyTickets(prev => prev.filter(t => t.id !== payload.old.id))
+                 return
+              }
 
-        const mapTicketData = (t: any): Ticket => ({
-          // ticketsテーブルの全カラムをマッピング
-          id: t.id,
-          user_id: t.user_id,
-          race_id: t.race_id,
-          content: t.content,
-          amount_per_point: t.amount_per_point,
-          total_points: t.total_points,
-          total_cost: t.total_cost,
-          status: t.status,
-          payout: t.payout,
-          source: t.source,
-          mode: t.mode,
-          created_at: t.created_at,
-          receipt_unique_id: t.receipt_unique_id,
-
-          // JOINしたracesテーブルの情報
-          race_name: t.races?.name || '',
-          race_date: t.races?.date || '',
-          venue: getVenueName(t.races?.place_code || ''),
-          race_number: t.races?.race_number || 0,
-
-          // JOINしたprofilesテーブルの情報 (フレンドチケット用)
-          user_name: t.profiles?.display_name || undefined,
-          user_avatar: t.profiles?.avatar_url || undefined,
-        })
-
-        const mappedMyTickets: Ticket[] = (myTicketsData || []).map(mapTicketData)
-        setMyTickets(mappedMyTickets)
+              // INSERT / UPDATE の場合
+              const { data: newTicketData, error } = await supabase
+                .from('tickets')
+                .select(`
+                  *,
+                  races (
+                    name, date, place_code, race_number, result_1st
+                  )
+                `)
+                .eq('id', payload.new.id)
+                .single()
+              
+              if (!error && newTicketData) {
+                const mappedTicket = mapTicketData(newTicketData)
+                setMyTickets(prev => {
+                    // 既存なら更新、新規なら追加
+                    const index = prev.findIndex(t => t.id === mappedTicket.id)
+                    if (index >= 0) {
+                        const newTickets = [...prev]
+                        newTickets[index] = mappedTicket
+                        return newTickets
+                    }
+                    return [...prev, mappedTicket]
+                })
+                
+                // 大量更新時の通知スパムを防ぐため、ここでのToastは控えめにするか、
+                // 同期処理以外の単発更新時のみに限定するのが理想ですが、一旦そのままにします
+              }
+            }
+          )
+          .subscribe()
 
         // 3. フレンドのチケット取得
         if (friendIds.length > 0) {
@@ -225,6 +285,10 @@ export default function DashboardPage() {
     }
 
     fetchData()
+
+    return () => {
+      if (channel) supabase.removeChannel(channel)
+    }
   }, [])
 
   // 日付フィルタの初期化ロジック
@@ -354,7 +418,14 @@ export default function DashboardPage() {
           <MobileNav activeTab={activeTab} onTabChange={setActiveTab} />
 
           <main className="pt-2 pb-6 px-3">
-            {activeTab === "my" && <RaceList races={myRaces} title="MY RACES" variant="my" />}
+            {activeTab === "my" && (
+              <RaceList 
+                races={myRaces} 
+                title="MY RACES" 
+                variant="my" 
+                onSyncComplete={fetchMyTickets} // コールバックを渡す
+              />
+            )}
             {activeTab === "friend" && <RaceList races={friendRaces} title={friendRaceTitle} variant="friend" />}
             {activeTab === "analysis" && (
               <div className="glass-panel p-6 text-center">
@@ -367,7 +438,12 @@ export default function DashboardPage() {
         <main className="pt-4 pb-6 px-6 max-w-[1800px] mx-auto">
           {/* Race Lists - Side by Side */}
           <div className="grid grid-cols-2 gap-4">
-            <RaceList races={myRaces} title="MY RACES" variant="my" />
+            <RaceList 
+              races={myRaces} 
+              title="MY RACES" 
+              variant="my" 
+              onSyncComplete={fetchMyTickets} // コールバックを渡す
+            />
             <RaceList races={friendRaces} title={friendRaceTitle} variant="friend" />
           </div>
         </main>

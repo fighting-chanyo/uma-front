@@ -28,6 +28,8 @@ export async function syncIpat(mode: 'today' | 'past') {
     return { success: false, error: 'No IPAT authentication data found' };
   }
 
+  let logId: string | null = null;
+
   try {
     // 1. sync_logs にレコード作成
     const { data: log, error: logError } = await supabase
@@ -44,6 +46,8 @@ export async function syncIpat(mode: 'today' | 'past') {
       console.error('Failed to create sync log:', logError);
       return { success: false, error: 'Failed to create sync log' };
     }
+    
+    logId = log.id;
 
     // 2. Cloud Run API 呼び出し
     const response = await fetch(API_URL, {
@@ -73,6 +77,18 @@ export async function syncIpat(mode: 'today' | 'past') {
 
   } catch (error) {
     console.error('Sync error:', error);
+    
+    // システムエラー時もログを更新
+    if (logId) {
+      await supabase
+        .from('sync_logs')
+        .update({ 
+          status: 'ERROR', 
+          message: `System Error: ${error instanceof Error ? error.message : 'Unknown error'}` 
+        })
+        .eq('id', logId);
+    }
+
     return { success: false, error: 'Internal server error' };
   }
 }
