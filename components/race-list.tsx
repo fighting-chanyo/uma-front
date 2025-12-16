@@ -6,6 +6,14 @@ import { RaceAccordionItem } from "./race-accordion-item"
 import { Button } from "@/components/ui/button"
 import { RefreshCw, ScanLine, PenLine, Loader2 } from "lucide-react"
 import type { Race } from "@/types/ticket"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
 interface RaceListProps {
   races: Race[]
@@ -15,6 +23,16 @@ interface RaceListProps {
 
 export function RaceList({ races, title, variant = "my" }: RaceListProps) {
   const [isSyncing, setIsSyncing] = useState(false)
+  const [isIpatDialogOpen, setIsIpatDialogOpen] = useState(false)
+
+  const handleIpatSync = async (mode: "past" | "today") => {
+    setIsIpatDialogOpen(false)
+    setIsSyncing(true)
+    // TODO: Implement actual IPAT sync logic here
+    console.log(`Syncing IPAT mode: ${mode}`)
+    await new Promise((r) => setTimeout(r, 2000))
+    setIsSyncing(false)
+  }
 
   const { totalBet, totalReturn, winCount } = useMemo(() => {
     let bet = 0
@@ -85,22 +103,55 @@ export function RaceList({ races, title, variant = "my" }: RaceListProps) {
 
         {variant === "my" && (
           <div className="flex items-center gap-1">
+            <Dialog open={isIpatDialogOpen} onOpenChange={setIsIpatDialogOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="flex flex-col items-center justify-center h-full w-24 px-0 text-[#00f3ff] hover:bg-[#00f3ff]/20 hover:text-[#00f3ff] border border-[#00f3ff]/50"
+                  disabled={isSyncing}
+                >
+                  {isSyncing ? (
+                    <Loader2 className="w-5 h-5 mb-1 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-5 h-5 mb-1" />
+                  )}
+                  <span className="text-[10px] font-mono font-bold tracking-widest">IPAT 同期</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px] bg-black/90 border-[#00f3ff]/20 text-white">
+                <DialogHeader>
+                  <DialogTitle className="text-[#00f3ff]">同期モード選択</DialogTitle>
+                  <DialogDescription className="text-gray-400">
+                    同期するデータの範囲を選択してください。
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <Button
+                    variant="outline"
+                    className="flex flex-col items-start h-auto p-4 border-white/10 hover:bg-white/5 hover:text-[#00f3ff] hover:border-[#00f3ff]/50 transition-all"
+                    onClick={() => handleIpatSync("today")}
+                  >
+                    <span className="font-bold mb-1">今日の馬券</span>
+                    <span className="text-xs text-gray-400 font-normal text-left whitespace-normal">
+                      本日購入した馬券データを同期します。
+                    </span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex flex-col items-start h-auto p-4 border-white/10 hover:bg-white/5 hover:text-[#00f3ff] hover:border-[#00f3ff]/50 transition-all"
+                    onClick={() => handleIpatSync("past")}
+                  >
+                    <span className="font-bold mb-1">前日までの馬券</span>
+                    <span className="text-xs text-gray-400 font-normal text-left whitespace-normal">
+                      過去60日以内にIPATで購入した馬券データを取得します。（今日分のデータは取得できません）
+                    </span>
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
             <Button
               variant="ghost"
-              className="flex flex-col items-center justify-center h-full px-4 py-2 text-[#00f3ff] hover:bg-[#00f3ff]/20 hover:text-[#00f3ff] border border-[#00f3ff]/50"
-              onClick={() => handleSync("ipat")}
-              disabled={isSyncing}
-            >
-              {isSyncing ? (
-                <Loader2 className="w-5 h-5 mb-1 animate-spin" />
-              ) : (
-                <RefreshCw className="w-5 h-5 mb-1" />
-              )}
-              <span className="text-[10px] font-mono font-bold tracking-widest">IPAT 同期</span>
-            </Button>
-            <Button
-              variant="ghost"
-              className="flex flex-col items-center justify-center h-full px-4 py-2 text-[#00f3ff] hover:bg-[#00f3ff]/20 hover:text-[#00f3ff] border border-[#00f3ff]/50"
+              className="flex flex-col items-center justify-center h-full w-24 px-0 text-[#00f3ff] hover:bg-[#00f3ff]/20 hover:text-[#00f3ff] border border-[#00f3ff]/50"
               onClick={() => handleSync("ocr")}
               disabled={isSyncing}
             >
@@ -109,7 +160,7 @@ export function RaceList({ races, title, variant = "my" }: RaceListProps) {
             </Button>
             <Button
               variant="ghost"
-              className="flex flex-col items-center justify-center h-full px-4 py-2 text-[#00f3ff] hover:bg-[#00f3ff]/20 hover:text-[#00f3ff] border border-[#00f3ff]/50"
+              className="flex flex-col items-center justify-center h-full w-24 px-0 text-[#00f3ff] hover:bg-[#00f3ff]/20 hover:text-[#00f3ff] border border-[#00f3ff]/50"
               onClick={() => handleSync("manual")}
               disabled={isSyncing}
             >
