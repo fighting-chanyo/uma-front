@@ -86,6 +86,7 @@ export default function DashboardPage() {
   const isMobile = useIsMobile()
   const [activeTab, setActiveTab] = useState<"my" | "friend" | "analysis">("my")
   const [isFriendModalOpen, setIsFriendModalOpen] = useState(false)
+  const [userProfile, setUserProfile] = useState<{ name: string; avatarUrl: string } | null>(null)
   
   // State for data
   const [friends, setFriends] = useState<Friend[]>([])
@@ -103,11 +104,30 @@ export default function DashboardPage() {
   useEffect(() => {
     async function fetchData() {
       try {
+        // 0. ログインユーザーの取得
+        const { data: { user } } = await supabase.auth.getUser()
+        const currentUserId = user?.id || MOCK_USER_ID
+
+        if (user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('display_name, avatar_url')
+            .eq('id', user.id)
+            .single()
+          
+          if (profile) {
+            setUserProfile({
+              name: profile.display_name || "No Name",
+              avatarUrl: profile.avatar_url
+            })
+          }
+        }
+
         // 1. フレンド一覧の取得
         const { data: friendsData, error: friendsError } = await supabase
           .from('friends')
           .select('friend_id')
-          .eq('user_id', MOCK_USER_ID)
+          .eq('user_id', currentUserId)
           .eq('status', 'ACCEPTED')
         
         if (friendsError) throw friendsError
@@ -142,7 +162,7 @@ export default function DashboardPage() {
               name, date, place_code, race_number, result_1st
             )
           `)
-          .eq('user_id', MOCK_USER_ID)
+          .eq('user_id', currentUserId)
         
         if (myTicketsError) throw myTicketsError
 
@@ -312,6 +332,7 @@ export default function DashboardPage() {
         hasActiveFilters={hasActiveFilters}
         onOpenFriendModal={() => setIsFriendModalOpen(true)}
         nextRaceInfo={nextRaceInfo}
+        userProfile={userProfile}
       />
 
       {hasActiveFilters && !isMobile && (

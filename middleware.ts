@@ -44,8 +44,8 @@ export async function middleware(req: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession()
 
-  // ログインページ以外でセッションがない場合は、ログインページにリダイレクト
-  if (!session && req.nextUrl.pathname !== "/login") {
+  // ログインページと認証関連のルート以外でセッションがない場合は、ログインページにリダイレクト
+  if (!session && req.nextUrl.pathname !== "/login" && !req.nextUrl.pathname.startsWith("/auth")) {
     const redirectUrl = req.nextUrl.clone()
     redirectUrl.pathname = "/login"
     return NextResponse.redirect(redirectUrl)

@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { Bell, Users, User } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -13,6 +14,7 @@ interface HeaderProps {
   hasActiveFilters: boolean
   onOpenFriendModal: () => void
   nextRaceInfo?: { venue: string; raceNumber: number; time: string }
+  userProfile?: { name: string; avatarUrl?: string } | null
 }
 
 export function Header({
@@ -22,6 +24,7 @@ export function Header({
   hasActiveFilters,
   onOpenFriendModal,
   nextRaceInfo,
+  userProfile,
 }: HeaderProps) {
   return (
     <header className="sticky top-0 z-50 glass-panel border-b border-border">
@@ -69,18 +72,17 @@ export function Header({
           </Button>
 
           {/* User Profile */}
-          <div className="flex items-center gap-2 pl-2 border-l border-border">
+          <Link href="/profile/setup?mode=edit" className="flex items-center gap-2 pl-2 border-l border-border cursor-pointer hover:opacity-80 transition-opacity">
             <div className="hidden md:block text-right">
-              <p className="text-sm font-medium">CyberJockey</p>
-              <p className="text-[9px] text-[#00f3ff]">RANK: S</p>
+              <p className="text-sm font-medium">{userProfile?.name || ""}</p>
             </div>
             <Avatar className="h-8 w-8 border border-[#00f3ff]/30">
-              <AvatarImage src="/cyberpunk-avatar.png" />
+              <AvatarImage src={userProfile?.avatarUrl || "/placeholder-avatar.jpg"} />
               <AvatarFallback className="bg-[#00f3ff]/10 text-[#00f3ff]">
                 <User className="h-4 w-4" />
               </AvatarFallback>
             </Avatar>
-          </div>
+          </Link>
         </div>
       </div>
     </header>
