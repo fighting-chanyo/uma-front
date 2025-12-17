@@ -15,6 +15,7 @@ interface HeaderProps {
   onOpenFriendModal: () => void
   nextRaceInfo?: { venue: string; raceNumber: number; time: string }
   userProfile?: { name: string; avatarUrl?: string } | null
+  pendingRequestCount?: number
 }
 
 export function Header({
@@ -25,6 +26,7 @@ export function Header({
   onOpenFriendModal,
   nextRaceInfo,
   userProfile,
+  pendingRequestCount = 0,
 }: HeaderProps) {
   return (
     <header className="sticky top-0 z-50 glass-panel border-b border-border">
@@ -38,7 +40,7 @@ export function Header({
             </h1>
             <div className="absolute -bottom-0.5 left-0 w-full h-[2px] bg-gradient-to-r from-[#ff003c] via-[#ff003c]/50 to-transparent" />
           </div>
-          <span className="hidden md:block text-[9px] text-muted-foreground tracking-widest">v2.1.0</span>
+          <span className="hidden md:block text-[9px] text-muted-foreground tracking-widest">v0.1.1-beta</span>
         </div>
 
         {nextRaceInfo && (
@@ -67,8 +69,13 @@ export function Header({
           </Button>
 
           {/* Friend Request Button */}
-          <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-white/5" onClick={onOpenFriendModal}>
+          <Button variant="ghost" size="icon" className="relative h-9 w-9 hover:bg-white/5" onClick={onOpenFriendModal}>
             <Users className="h-5 w-5 text-muted-foreground" />
+            {pendingRequestCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#ff003c] text-[10px] font-bold text-white neon-pulse">
+                {pendingRequestCount}
+              </span>
+            )}
           </Button>
 
           {/* User Profile */}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import { Header } from "@/components/header"
 import { RaceList } from "@/components/race-list"
 import { MobileNav } from "@/components/mobile-nav"
@@ -11,6 +11,7 @@ import type { Ticket, Friend, FilterState, Race } from "@/types/ticket"
 import { VENUES } from "@/types/ticket"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
+import { getFriendRequests } from "@/app/actions/friend"
 
 // FilterStateのdateRangeの型定義を修正
 export interface UpdatedFilterState extends Omit<FilterState, 'dateRange'> {
@@ -94,6 +95,7 @@ export default function DashboardPage() {
   const [friends, setFriends] = useState<Friend[]>([])
   const [myTickets, setMyTickets] = useState<Ticket[]>([])
   const [friendTickets, setFriendTickets] = useState<Ticket[]>([])
+  const [pendingRequestCount, setPendingRequestCount] = useState(0)
 
   // Pagination state
   const [offset, setOffset] = useState(0)
@@ -187,6 +189,16 @@ export default function DashboardPage() {
       fetchMyTickets(true)
     }
   }
+
+  // 友達リクエスト数を更新する関数
+  const refreshFriendRequests = useCallback(async () => {
+    try {
+      const requests = await getFriendRequests()
+      setPendingRequestCount(requests.length)
+    } catch (error) {
+      console.error('Error fetching friend requests:', error)
+    }
+  }, [])
 
   // Summary state
   const [summary, setSummary] = useState({
@@ -298,6 +310,9 @@ export default function DashboardPage() {
               avatarUrl: profile.avatar_url
             })
           }
+
+          // 友達リクエスト数を取得
+          await refreshFriendRequests()
         }
 
         // 1. フレンド一覧の取得
@@ -414,7 +429,7 @@ export default function DashboardPage() {
     return () => {
       if (channel) supabase.removeChannel(channel)
     }
-  }, [])
+  }, [refreshFriendRequests])
 
   const hasActiveFilters = useMemo(() => {
     return (
@@ -454,6 +469,46 @@ export default function DashboardPage() {
     return "FRIENDS' RACES";
   }, [filterState.selectedFriendIds, friends]);
 
+  const refreshFriendData = async () => {
+    try {
+      const requests = await getFriendRequests()
+      setPendingRequestCount(requests.length)
+
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: friendsData, error: friendsError } = await supabase
+        .from('friends')
+        .select('friend_id')
+        .eq('user_id', user.id)
+        .eq('status', 'ACCEPTED')
+      
+      if (friendsError) throw friendsError
+      
+      const friendIds = friendsData?.map(f => f.friend_id) || []
+      
+      if (friendIds.length > 0) {
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('*')
+          .in('id', friendIds)
+        
+        if (profilesError) throw profilesError
+
+        const mappedFriends: Friend[] = (profilesData || []).map(p => ({
+          id: p.id,
+          name: p.display_name || 'Unknown',
+          avatar: p.avatar_url || ''
+        }))
+        setFriends(mappedFriends)
+      } else {
+        setFriends([])
+      }
+    } catch (error) {
+      console.error('Error refreshing friend data:', error)
+    }
+  }
+
   const nextRaceInfo = { venue: "東京", raceNumber: 11, time: "15:35" }
 
   return (
@@ -478,6 +533,7 @@ export default function DashboardPage() {
         onOpenFriendModal={() => setIsFriendModalOpen(true)}
         nextRaceInfo={nextRaceInfo}
         userProfile={userProfile}
+        pendingRequestCount={pendingRequestCount}
       />
 
       {hasActiveFilters && !isMobile && (
@@ -538,7 +594,11 @@ export default function DashboardPage() {
         </main>
       )}
 
-      <FriendRequestModal isOpen={isFriendModalOpen} onClose={() => setIsFriendModalOpen(false)} />
+      <FriendRequestModal 
+        isOpen={isFriendModalOpen} 
+        onClose={() => setIsFriendModalOpen(false)} 
+        onUpdate={refreshFriendRequests}
+      />
     </div>
   )
 }
