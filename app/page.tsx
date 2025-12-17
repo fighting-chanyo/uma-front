@@ -89,6 +89,7 @@ export default function DashboardPage() {
   const isMobile = useIsMobile()
   const [activeTab, setActiveTab] = useState<"my" | "friend" | "analysis">("my")
   const [isFriendModalOpen, setIsFriendModalOpen] = useState(false)
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false)
   const [userProfile, setUserProfile] = useState<{ name: string; avatarUrl: string } | null>(null)
   
   // State for data
@@ -534,23 +535,26 @@ export default function DashboardPage() {
         nextRaceInfo={nextRaceInfo}
         userProfile={userProfile}
         pendingRequestCount={pendingRequestCount}
+        isFilterModalOpen={isFilterModalOpen}
+        onFilterModalOpenChange={setIsFilterModalOpen}
       />
 
-      {hasActiveFilters && !isMobile && (
-        <FilterSummary filterState={filterState} friends={friends} className="max-w-[1800px] mx-auto" />
+      {!isMobile && (
+        <FilterSummary 
+          filterState={filterState} 
+          friends={friends} 
+          className="max-w-[1800px] mx-auto" 
+          onClick={() => setIsFilterModalOpen(true)}
+        />
       )}
 
       {isMobile ? (
         <>
-          <div className="px-3 py-2 border-b border-white/10 bg-black/50 flex items-center justify-center gap-2">
-            <span className="text-[10px] text-[#00f3ff] font-mono">NEXT:</span>
-            <span className="text-sm font-bold">
-              {nextRaceInfo.venue} {nextRaceInfo.raceNumber}R
-            </span>
-            <span className="text-sm font-mono text-[#00f3ff]">{nextRaceInfo.time}</span>
-          </div>
-
-          {hasActiveFilters && <FilterSummary filterState={filterState} friends={friends} />}
+          <FilterSummary 
+            filterState={filterState} 
+            friends={friends} 
+            onClick={() => setIsFilterModalOpen(true)}
+          />
 
           <MobileNav activeTab={activeTab} onTabChange={setActiveTab} />
 

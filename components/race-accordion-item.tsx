@@ -115,7 +115,7 @@ export function RaceAccordionItem({ race, index, variant = "my" }: RaceAccordion
               {Object.entries(friendTicketsByUser).map(([userId, { userName, userAvatar, tickets }]) => (
                 <div key={userId} className="border-b border-white/5 last:border-b-0">
                   {/* User Sub-header */}
-                  <div className="flex items-center gap-2 px-3 py-2 bg-white/[0.02]">
+                  <div className="flex items-center gap-2 px-3 py-2 bg-[#003333]">
                     <Avatar className="w-5 h-5 border border-white/20">
                       <AvatarImage src={userAvatar || "/placeholder.svg"} />
                       <AvatarFallback className="bg-[#ff003c]/20 text-[#ff003c] text-[8px]">
@@ -160,9 +160,7 @@ function TicketRow({ ticket }: { ticket: Ticket & { owner: "me" | "friend" } }) 
         // 条件に応じてスタイルを適用
         isAir
           ? "bg-white/[0.08] border-l-2 border-dashed border-white/40" // エア馬券のスタイル
-          : ticket.owner === "friend"
-          ? "bg-[#60494c] hover:bg-[#79616e]" // フレンドの馬券スタイル
-          : "bg-[#202020] hover:bg-[#2d2d2d]", // デフォルトの自分の馬券スタイル
+          : "bg-[#202020] hover:bg-[#2d2d2d]", // デフォルトの馬券スタイル
       )}
     >
       {/* Status + Bet Type + Mode Badge */}

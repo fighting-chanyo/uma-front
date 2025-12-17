@@ -16,6 +16,8 @@ interface HeaderProps {
   nextRaceInfo?: { venue: string; raceNumber: number; time: string }
   userProfile?: { name: string; avatarUrl?: string } | null
   pendingRequestCount?: number
+  isFilterModalOpen?: boolean
+  onFilterModalOpenChange?: (open: boolean) => void
 }
 
 export function Header({
@@ -27,6 +29,8 @@ export function Header({
   nextRaceInfo,
   userProfile,
   pendingRequestCount = 0,
+  isFilterModalOpen,
+  onFilterModalOpenChange,
 }: HeaderProps) {
   return (
     <header className="sticky top-0 z-50 glass-panel border-b border-border">
@@ -60,6 +64,8 @@ export function Header({
             filterState={filterState}
             onApplyFilters={onApplyFilters}
             hasActiveFilters={hasActiveFilters}
+            open={isFilterModalOpen}
+            onOpenChange={onFilterModalOpenChange}
           />
 
           {/* Notification Bell */}
