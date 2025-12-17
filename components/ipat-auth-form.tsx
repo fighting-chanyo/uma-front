@@ -173,8 +173,8 @@ export function IpatAuthForm({ onSuccess, initialData }: IpatAuthFormProps) {
       </Button>
       
       <p className="text-[10px] text-gray-500 mt-2">
-        ※認証情報は暗号化され、ブラウザのCookie（HttpOnly）に保存されます。
-        サーバー側でのみ復号され、IPATへのログインに使用されます。
+        ※これらの情報は暗号化され、ブラウザのCookie（HttpOnly）に保存されます。<br></br>
+        当サービスのデータベースには保存されず、サーバー側で一時的に復号し、IPATへのログインにのみ使用されます。
       </p>
     </form>
   )

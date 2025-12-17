@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Filter, Check, CalendarDays, Users, MapPin, Layers } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -8,6 +8,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import type { Friend, FilterState } from "@/types/ticket"
 import { VENUES } from "@/types/ticket"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { date, z } from "zod"
+import { useRouter, usePathname, useSearchParams } from "next/navigation"
 
 // react-datepicker とそのCSSをインポート
 import DatePicker, { registerLocale } from "react-datepicker"
@@ -24,48 +28,67 @@ interface FilterModalProps {
   hasActiveFilters: boolean
 }
 
+const formSchema = z.object({
+  friendIds: z.array(z.string()).optional(),
+  date: z
+    .object({
+      from: z.date().optional(),
+      to: z.date().optional(),
+    })
+    .optional(),
+  venue: z.array(z.string()).optional(),
+  displayMode: z.enum(["REAL", "AIR", "BOTH"]).optional(),
+})
+
 export function FilterModal({ friends, filterState, onApplyFilters, hasActiveFilters }: FilterModalProps) {
-  const [open, setOpen] = useState(false)
-  const [localFilters, setLocalFilters] = useState<FilterState>(filterState)
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const [date, setDate] = useState<DateRange | undefined>()
 
-  const handleOpen = (isOpen: boolean) => {
-    if (isOpen) {
-      setLocalFilters(filterState)
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+  })
+
+  const createQueryString = useCallback(() => {
+    const query: { [key: string]: string | string[] | undefined } = {}
+    const values = form.getValues()
+
+    // フレンドID
+    if (values.friendIds?.length) {
+      query.friendIds = values.friendIds
     }
-    setOpen(isOpen)
-  }
 
-  const handleApply = () => {
-    onApplyFilters(localFilters)
-    setOpen(false)
-  }
-  
-  const handleSelectAllFriends = () => {
-    if (localFilters.selectedFriendIds.length === friends.length) {
-      setLocalFilters((prev) => ({ ...prev, selectedFriendIds: [] }))
-    } else {
-      setLocalFilters((prev) => ({ ...prev, selectedFriendIds: friends.map((f) => f.id) }))
+    // 日付
+    if (values.date?.from && values.date.to) {
+      query.date = `${values.date.from.toISOString()},${values.date.to.toISOString()}`
     }
-  }
 
-  const handleToggleFriend = (id: string) => {
-    setLocalFilters((prev) => ({
-      ...prev,
-      selectedFriendIds: prev.selectedFriendIds.includes(id)
-        ? prev.selectedFriendIds.filter((fid) => fid !== id)
-        : [...prev.selectedFriendIds, id],
-    }))
-  }
+    // 会場
+    if (values.venue?.length) {
+      query.venue = values.venue
+    }
 
-  const handleToggleVenue = (venue: string) => {
-    setLocalFilters((prev) => ({
-      ...prev,
-      venues: prev.venues.includes(venue) ? prev.venues.filter((v) => v !== venue) : [...prev.venues, venue],
-    }))
-  }
+    // 表示モード
+    if (values.displayMode) {
+      query.displayMode = values.displayMode
+    }
+
+    return query
+  }, [form])
+
+  useEffect(() => {
+    const from = searchParams.get("date")?.split(",")[0]
+    const to = searchParams.get("date")?.split(",")[1]
+
+    if (from && to) {
+      setDate({ from: new Date(from), to: new Date(to) })
+      form.setValue('date', { from: new Date(from), to: new Date(to) })
+    }
+  }, [searchParams, form])
 
   return (
-    <Dialog open={open} onOpenChange={handleOpen}>
+    <Dialog>
       <DialogTrigger asChild>
         <Button
           variant="ghost"
@@ -94,10 +117,10 @@ export function FilterModal({ friends, filterState, onApplyFilters, hasActiveFil
               {(["REAL", "AIR", "BOTH"] as const).map((mode) => (
                 <button
                   key={mode}
-                  onClick={() => setLocalFilters((prev) => ({ ...prev, displayMode: mode }))}
+                  onClick={() => form.setValue("displayMode", mode)}
                   className={cn(
                     "py-2 text-xs font-bold tracking-wider transition-all",
-                    localFilters.displayMode === mode
+                    filterState.displayMode === mode
                       ? "bg-[#00f3ff]/20 text-[#00f3ff] border border-[#00f3ff]/50"
                       : "text-muted-foreground hover:bg-white/5",
                   )}
@@ -116,19 +139,27 @@ export function FilterModal({ friends, filterState, onApplyFilters, hasActiveFil
                 FRIENDS
               </div>
               <button
-                onClick={handleSelectAllFriends}
+                onClick={() => {
+                  const allSelected = filterState.selectedFriendIds.length === friends.length
+                  form.setValue("friendIds", allSelected ? [] : friends.map((f) => f.id))
+                }}
                 className="text-[10px] text-[#00f3ff] hover:text-[#00f3ff]/80 font-mono"
               >
-                {localFilters.selectedFriendIds.length === friends.length ? "DESELECT ALL" : "SELECT ALL"}
+                {filterState.selectedFriendIds.length === friends.length ? "DESELECT ALL" : "SELECT ALL"}
               </button>
             </div>
             <div className="flex flex-wrap gap-2">
               {friends.map((friend) => {
-                const isSelected = localFilters.selectedFriendIds.includes(friend.id)
+                const isSelected = filterState.selectedFriendIds.includes(friend.id)
                 return (
                   <button
                     key={friend.id}
-                    onClick={() => handleToggleFriend(friend.id)}
+                    onClick={() => {
+                      const newSelected = isSelected
+                        ? filterState.selectedFriendIds.filter((fid) => fid !== friend.id)
+                        : [...filterState.selectedFriendIds, friend.id]
+                      form.setValue("friendIds", newSelected)
+                    }}
                     className={cn(
                       "flex items-center gap-2 px-2 py-1.5 border transition-all",
                       isSelected
@@ -156,13 +187,11 @@ export function FilterModal({ friends, filterState, onApplyFilters, hasActiveFil
             </div>
             <DatePicker
               selectsRange={true}
-              startDate={localFilters.dateRange.from}
-              endDate={localFilters.dateRange.to}
+              startDate={date?.from}
+              endDate={date?.to}
               onChange={(dates: [Date | null, Date | null]) => {
-                setLocalFilters(prev => ({
-                  ...prev,
-                  dateRange: { from: dates[0], to: dates[1] },
-                }))
+                setDate(dates[0] && dates[1] ? { from: dates[0], to: dates[1] } : undefined)
+                form.setValue('date', dates[0] && dates[1] ? { from: dates[0], to: dates[1] } : undefined)
               }}
               isClearable={true}
               dateFormat="yyyy/MM/dd"
@@ -181,11 +210,16 @@ export function FilterModal({ friends, filterState, onApplyFilters, hasActiveFil
             </div>
             <div className="grid grid-cols-5 gap-1">
               {VENUES.map((venue) => {
-                const isSelected = localFilters.venues.includes(venue)
+                const isSelected = filterState.venues.includes(venue)
                 return (
                   <button
                     key={venue}
-                    onClick={() => handleToggleVenue(venue)}
+                    onClick={() => {
+                      const newVenues = isSelected
+                        ? filterState.venues.filter((v) => v !== venue)
+                        : [...filterState.venues, venue]
+                      form.setValue("venue", newVenues)
+                    }}
                     className={cn(
                       "py-1.5 text-[10px] font-bold transition-all border",
                       isSelected
@@ -203,7 +237,10 @@ export function FilterModal({ friends, filterState, onApplyFilters, hasActiveFil
 
         {/* Apply Button */}
         <Button
-          onClick={handleApply}
+          onClick={() => {
+            onApplyFilters(form.getValues())
+            router.push({ pathname, query: createQueryString() })
+          }}
           className="w-full bg-[#ff003c] hover:bg-[#ff003c]/80 text-white font-bold tracking-wider py-5 skew-x-[-3deg]"
         >
           <span className="skew-x-[3deg]">APPLY FILTERS</span>

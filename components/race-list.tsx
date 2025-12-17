@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useEffect } from "react"
+import { useMemo, useState, useEffect, useRef } from "react"
 import { cn } from "@/lib/utils"
 import { RaceAccordionItem } from "./race-accordion-item"
 import { Button } from "@/components/ui/button"
@@ -23,11 +23,21 @@ interface RaceListProps {
   races: Race[]
   title: string
   variant?: "my" | "friend"
-  onSyncComplete?: () => void // 追加
+  onSyncComplete?: () => void
+  isLoading?: boolean
+  hasMore?: boolean
+  onLoadMore?: () => void
+  summary?: {
+    totalBet: number
+    totalReturn: number
+    winCount: number
+    raceCount: number
+  }
 }
 
-export function RaceList({ races, title, variant = "my", onSyncComplete }: RaceListProps) { // 追加
+export function RaceList({ races, title, variant = "my", onSyncComplete, isLoading = false, hasMore = false, onLoadMore, summary }: RaceListProps) { // 追加
   const { toast } = useToast()
+  const observerTarget = useRef<HTMLDivElement>(null)
   const [isSyncing, setIsSyncing] = useState(false)
   const [isIpatDialogOpen, setIsIpatDialogOpen] = useState(false)
   const [hasAuth, setHasAuth] = useState<boolean | null>(null)
@@ -43,6 +53,27 @@ export function RaceList({ races, title, variant = "my", onSyncComplete }: RaceL
       checkIpatAuth().then(setHasAuth)
     }
   }, [isIpatDialogOpen, isEditingAuth])
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoading && onLoadMore) {
+          onLoadMore()
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current)
+    }
+
+    return () => {
+      if (observerTarget.current) {
+        observer.unobserve(observerTarget.current)
+      }
+    }
+  }, [hasMore, isLoading, onLoadMore])
 
   const handleIpatSync = async (mode: "past" | "today") => {
     setIsIpatDialogOpen(false)
@@ -133,7 +164,11 @@ export function RaceList({ races, title, variant = "my", onSyncComplete }: RaceL
     }
   }
 
-  const { totalBet, totalReturn, winCount } = useMemo(() => {
+  const { totalBet, totalReturn, winCount, raceCount } = useMemo(() => {
+    if (summary) {
+      return summary
+    }
+
     let bet = 0
     let ret = 0
     const winningRaceIds = new Set<string>()
@@ -153,8 +188,8 @@ export function RaceList({ races, title, variant = "my", onSyncComplete }: RaceL
       })
     })
 
-    return { totalBet: bet, totalReturn: ret, winCount: winningRaceIds.size }
-  }, [races, variant])
+    return { totalBet: bet, totalReturn: ret, winCount: winningRaceIds.size, raceCount: races.length }
+  }, [races, variant, summary])
 
   const balance = totalReturn - totalBet
 
@@ -193,7 +228,7 @@ export function RaceList({ races, title, variant = "my", onSyncComplete }: RaceL
               </div>
             </div>
             <p className="text-[9px] text-muted-foreground mt-1 font-mono tracking-wider">
-              {races.length} RACES • {winCount} WINS
+              {raceCount} RACES • {winCount} WINS
             </p>
           </div>
         </div>
@@ -210,7 +245,7 @@ export function RaceList({ races, title, variant = "my", onSyncComplete }: RaceL
               <DialogTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="flex flex-col items-center justify-center h-full w-24 px-0 text-[#00f3ff] hover:bg-[#00f3ff]/20 hover:text-[#00f3ff] border border-[#00f3ff]/50"
+                  className="flex flex-col items-center justify-center h-full w-18 px-0 text-[#00f3ff] hover:bg-[#00f3ff]/20 hover:text-[#00f3ff] border border-[#00f3ff]/50"
                   disabled={isSyncing}
                 >
                   {isSyncing ? (
@@ -218,7 +253,7 @@ export function RaceList({ races, title, variant = "my", onSyncComplete }: RaceL
                   ) : (
                     <RefreshCw className="w-5 h-5 mb-1" />
                   )}
-                  <span className="text-[10px] font-mono font-bold tracking-widest">IPAT 同期</span>
+                  <span className="text-[10px] font-mono font-bold tracking-widest">IPAT同期</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px] bg-black/90 border-[#00f3ff]/20 text-white">
@@ -282,8 +317,12 @@ export function RaceList({ races, title, variant = "my", onSyncComplete }: RaceL
                         </span>
                       </Button>
                     </div>
-                    <div className="text-center mt-2">
-                        <Button variant="link" onClick={handleEditClick} className="text-xs text-gray-400 hover:text-white">
+                    <div className="mt-2">
+                        <Button 
+                            variant="outline" 
+                            onClick={handleEditClick} 
+                            className="w-full h-10 border-dashed border-white/20 text-xs text-gray-400 hover:text-[#00f3ff] hover:border-[#00f3ff]/50 hover:bg-[#00f3ff]/5 transition-all"
+                        >
                             IPAT認証情報を編集する
                         </Button>
                     </div>
@@ -293,7 +332,7 @@ export function RaceList({ races, title, variant = "my", onSyncComplete }: RaceL
             </Dialog>
             <Button
               variant="ghost"
-              className="flex flex-col items-center justify-center h-full w-24 px-0 text-[#00f3ff] hover:bg-[#00f3ff]/20 hover:text-[#00f3ff] border border-[#00f3ff]/50"
+              className="flex flex-col items-center justify-center h-full w-18 px-0 text-[#00f3ff] hover:bg-[#00f3ff]/20 hover:text-[#00f3ff] border border-[#00f3ff]/50"
               onClick={() => handleSync("ocr")}
               disabled={isSyncing}
             >
@@ -302,7 +341,7 @@ export function RaceList({ races, title, variant = "my", onSyncComplete }: RaceL
             </Button>
             <Button
               variant="ghost"
-              className="flex flex-col items-center justify-center h-full w-24 px-0 text-[#00f3ff] hover:bg-[#00f3ff]/20 hover:text-[#00f3ff] border border-[#00f3ff]/50"
+              className="flex flex-col items-center justify-center h-full w-18 px-0 text-[#00f3ff] hover:bg-[#00f3ff]/20 hover:text-[#00f3ff] border border-[#00f3ff]/50"
               onClick={() => handleSync("manual")}
               disabled={isSyncing}
             >
@@ -328,11 +367,30 @@ export function RaceList({ races, title, variant = "my", onSyncComplete }: RaceL
         </div>
 
         {races.length > 0 ? (
-          races.map((race, index) => (
-            <RaceAccordionItem key={race.raceId} race={race} index={index} variant={variant} />
-          ))
+          <>
+            {races.map((race, index) => (
+              <RaceAccordionItem key={race.raceId} race={race} index={index} variant={variant} />
+            ))}
+            <div ref={observerTarget} className="py-4 flex justify-center w-full min-h-[20px]">
+              {isLoading && (
+                <div className="flex items-center gap-2 text-[#00f3ff] text-xs font-mono animate-pulse">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  LOADING DATA...
+                </div>
+              )}
+            </div>
+          </>
         ) : (
-          <div className="p-8 text-center text-muted-foreground text-sm">NO DATA FOUND</div>
+          <div className="p-8 text-center text-muted-foreground text-sm flex flex-col items-center justify-center min-h-[200px]">
+             {isLoading ? (
+                <div className="flex flex-col items-center gap-2 text-[#00f3ff] text-xs font-mono animate-pulse">
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                  LOADING DATA...
+                </div>
+             ) : (
+                "NO DATA FOUND"
+             )}
+          </div>
         )}
       </div>
     </div>

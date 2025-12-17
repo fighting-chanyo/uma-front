@@ -95,6 +95,12 @@ export default function DashboardPage() {
   const [myTickets, setMyTickets] = useState<Ticket[]>([])
   const [friendTickets, setFriendTickets] = useState<Ticket[]>([])
 
+  // Pagination state
+  const [offset, setOffset] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
+  const LIMIT = 20
+
   const [filterState, setFilterState] = useState<FilterState>({
     displayMode: "BOTH",
     selectedFriendIds: [], // 初期値は空、データ取得後に更新
@@ -126,10 +132,17 @@ export default function DashboardPage() {
   })
 
   // 自分のチケットを再取得する関数
-  const fetchMyTickets = async () => {
+  const fetchMyTickets = async (isLoadMore = false) => {
+    // ローディング中で、かつ追加読み込みの場合は重複リクエストを防ぐ
+    // 初期ロード(isLoadMore=false)の場合は、強制的にリロードさせるためにチェックしない（または必要に応じて制御）
+    if (isLoadMore && isLoading) return
+
+    setIsLoading(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
+
+      const currentOffset = isLoadMore ? offset : 0
 
       const { data: myTicketsData, error: myTicketsError } = await supabase
         .from('tickets')
@@ -140,15 +153,127 @@ export default function DashboardPage() {
           )
         `)
         .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .range(currentOffset, currentOffset + LIMIT - 1)
       
       if (myTicketsError) throw myTicketsError
 
       const mappedMyTickets: Ticket[] = (myTicketsData || []).map(mapTicketData)
-      setMyTickets(mappedMyTickets)
+      
+      if (isLoadMore) {
+        setMyTickets(prev => {
+          // 重複を防ぐために既存のIDを確認してフィルタリング
+          const existingIds = new Set(prev.map(t => t.id))
+          const uniqueNewTickets = mappedMyTickets.filter(t => !existingIds.has(t.id))
+          return [...prev, ...uniqueNewTickets]
+        })
+        setOffset(prev => prev + LIMIT)
+      } else {
+        setMyTickets(mappedMyTickets)
+        setOffset(LIMIT)
+      }
+      
+      // 取得件数がLIMIT未満なら、もうデータはない
+      setHasMore(mappedMyTickets.length === LIMIT)
     } catch (error) {
       console.error('Error refreshing tickets:', error)
+    } finally {
+      setIsLoading(false)
     }
   }
+
+  const loadMoreMyTickets = () => {
+    if (!isLoading && hasMore) {
+      fetchMyTickets(true)
+    }
+  }
+
+  // Summary state
+  const [summary, setSummary] = useState({
+    totalBet: 0,
+    totalReturn: 0,
+    winCount: 0,
+    raceCount: 0
+  })
+
+  // Fetch summary data
+  useEffect(() => {
+    const fetchSummary = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        let query = supabase
+          .from('tickets')
+          .select(`
+            total_cost,
+            payout,
+            status,
+            race_id,
+            mode,
+            races!inner (
+              date,
+              place_code
+            )
+          `)
+          .eq('user_id', user.id)
+
+        // displayMode
+        if (filterState.displayMode !== "BOTH") {
+          query = query.eq('mode', filterState.displayMode)
+        }
+
+        // dateRange
+        if (filterState.dateRange.from) {
+          query = query.gte('races.date', filterState.dateRange.from.toISOString())
+        }
+        if (filterState.dateRange.to) {
+          query = query.lte('races.date', filterState.dateRange.to.toISOString())
+        }
+
+        // venues
+        if (filterState.venues.length > 0 && filterState.venues.length < VENUES.length) {
+          const targetCodes = Object.entries(PLACE_CODE_MAP)
+            .filter(([_, name]) => filterState.venues.includes(name))
+            .map(([code, _]) => code)
+          
+          if (targetCodes.length > 0) {
+             query = query.in('races.place_code', targetCodes)
+          }
+        }
+
+        const { data, error } = await query
+
+        if (error) throw error
+
+        let totalBet = 0
+        let totalReturn = 0
+        const winningRaceIds = new Set<string>()
+        const raceIds = new Set<string>()
+
+        data.forEach((ticket: any) => {
+          totalBet += ticket.total_cost || 0
+          totalReturn += ticket.payout || 0
+          raceIds.add(ticket.race_id)
+          if (ticket.status === 'WIN') {
+            winningRaceIds.add(ticket.race_id)
+          }
+        })
+
+        setSummary({
+          totalBet,
+          totalReturn,
+          winCount: winningRaceIds.size,
+          raceCount: raceIds.size
+        })
+
+      } catch (error) {
+        console.error('Error fetching summary:', error)
+      }
+    }
+
+    fetchSummary()
+  }, [filterState])
 
   // データ取得
   useEffect(() => {
@@ -291,56 +416,12 @@ export default function DashboardPage() {
     }
   }, [])
 
-  // 日付フィルタの初期化ロジック
-  useEffect(() => {
-    const allTickets = [...myTickets, ...friendTickets];
-    if (allTickets.length > 0) {
-      const latestDate = allTickets.reduce((latest, ticket) => {
-        // ticket.race_date が存在する場合のみ比較
-        if (ticket.race_date) {
-          const ticketDate = new Date(ticket.race_date);
-          return ticketDate > latest ? ticketDate : latest;
-        }
-        return latest;
-      }, new Date(0));
-
-      // 有効な日付がある場合のみ実行
-      if (latestDate.getTime() !== new Date(0).getTime()) {
-        const dayOfWeek = latestDate.getDay(); // 0 (Sun) - 6 (Sat)
-        
-        // 直近の土曜日を探す
-        const lastSaturday = new Date(latestDate);
-        lastSaturday.setDate(latestDate.getDate() - (dayOfWeek + 1) % 7);
-        
-        // 直近の日曜日を探す
-        const lastSunday = new Date(lastSaturday);
-        lastSunday.setDate(lastSaturday.getDate() + 1);
-
-        setFilterState(prevState => {
-          if (prevState.dateRange.from === null && prevState.dateRange.to === null) {
-            return {
-              ...prevState,
-              dateRange: {
-                from: lastSaturday,
-                to: lastSunday,
-              }
-            }
-          }
-          return prevState
-        });
-      }
-    }
-  }, [myTickets, friendTickets]);
-
   const hasActiveFilters = useMemo(() => {
     return (
-      filterState.displayMode !== "BOTH" ||
-      filterState.selectedFriendIds.length !== friends.length ||
-      filterState.venues.length !== VENUES.length || // 全選択状態かをVENUESと比較
-      filterState.dateRange.from != null ||
-      filterState.dateRange.to != null
+      filterState.dateRange.from !== null ||
+      filterState.dateRange.to !== null
     )
-  }, [filterState, friends.length]) // friends.lengthを依存配列に追加
+  }, [filterState])
 
   const applyFilters = (tickets: Ticket[]) => {
     return tickets.filter((ticket) => {
@@ -423,7 +504,11 @@ export default function DashboardPage() {
                 races={myRaces} 
                 title="MY RACES" 
                 variant="my" 
-                onSyncComplete={fetchMyTickets} // コールバックを渡す
+                onSyncComplete={() => fetchMyTickets(false)}
+                isLoading={isLoading}
+                hasMore={hasMore}
+                onLoadMore={loadMoreMyTickets}
+                summary={summary}
               />
             )}
             {activeTab === "friend" && <RaceList races={friendRaces} title={friendRaceTitle} variant="friend" />}
@@ -442,7 +527,11 @@ export default function DashboardPage() {
               races={myRaces} 
               title="MY RACES" 
               variant="my" 
-              onSyncComplete={fetchMyTickets} // コールバックを渡す
+              onSyncComplete={() => fetchMyTickets(false)}
+              isLoading={isLoading}
+              hasMore={hasMore}
+              onLoadMore={loadMoreMyTickets}
+              summary={summary}
             />
             <RaceList races={friendRaces} title={friendRaceTitle} variant="friend" />
           </div>

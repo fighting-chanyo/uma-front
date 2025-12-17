@@ -152,7 +152,7 @@ function TicketRow({ ticket }: { ticket: Ticket & { owner: "me" | "friend" } }) 
   return (
     <div
       className={cn(
-        "grid grid-cols-[auto_1fr_80px] gap-3 px-3 py-1 items-center",
+        "grid grid-cols-[auto_1fr_auto] gap-3 px-3 py-1 items-center",
         "transition-colors",
         "border-b border-dotted border-gray/40", // はっきりとした白い境界線
         "last:border-b-0", // 最後の項目には境界線なし
@@ -193,7 +193,14 @@ function TicketRow({ ticket }: { ticket: Ticket & { owner: "me" | "friend" } }) 
       {/* Amount / Payout */}
       <div className="text-right text-xs font-mono flex items-center justify-end gap-3 whitespace-nowrap">
         {/* データ変換が不完全な場合に備え、?? 0 でフォールバックしエラーを防ぐ */}
-        <span className="text-muted-foreground">¥{(ticket.total_cost ?? 0).toLocaleString()}</span>
+        <span className="text-muted-foreground">
+          ¥{(ticket.total_cost ?? 0).toLocaleString()}
+          {ticket.total_cost !== ticket.amount_per_point && (
+            <span className="text-[10px] ml-1">
+              (1点¥{ticket.amount_per_point.toLocaleString()})
+            </span>
+          )}
+        </span>
         
         {ticket.status === "WIN" && ticket.payout && (
           <span className="text-[#00ff41] font-bold">

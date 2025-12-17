@@ -11,7 +11,7 @@ interface TicketAccordionItemProps {
   index: number
 }
 
-export const GRID_COLS = "grid grid-cols-[24px_80px_1fr_80px_24px]"
+export const GRID_COLS = "grid grid-cols-[24px_80px_1fr_120px_24px]"
 
 const BET_TYPE_MAP: Record<string, string> = {
   WIN: "単勝",
@@ -100,6 +100,11 @@ export function TicketAccordionItem({ ticket, index }: TicketAccordionItemProps)
         <div className="flex flex-col items-end">
           <span className="text-xs font-mono font-bold text-foreground">
             ¥{ticket.total_cost.toLocaleString()}
+            {ticket.total_cost !== ticket.amount_per_point && (
+              <span className="text-[10px] font-normal text-muted-foreground ml-1">
+                (1点¥{ticket.amount_per_point.toLocaleString()})
+              </span>
+            )}
           </span>
           {isWin && ticket.payout && (
             <span className="text-[10px] font-mono text-[#00ff41]">
