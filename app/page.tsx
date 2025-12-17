@@ -102,6 +102,12 @@ export default function DashboardPage() {
   const [offset, setOffset] = useState(0)
   const [hasMore, setHasMore] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
+  
+  // Friend Pagination state
+  const [friendOffset, setFriendOffset] = useState(0)
+  const [friendHasMore, setFriendHasMore] = useState(true)
+  const [isFriendLoading, setIsFriendLoading] = useState(false)
+
   const LIMIT = 20
 
   const [filterState, setFilterState] = useState<FilterState>({
@@ -191,6 +197,69 @@ export default function DashboardPage() {
     }
   }
 
+  // 友達のチケットを取得する関数
+  const fetchFriendTickets = async (isLoadMore = false, specificFriendIds?: string[]) => {
+    if (isLoadMore && isFriendLoading) return
+
+    const targetFriendIds = specificFriendIds || filterState.selectedFriendIds
+    if (targetFriendIds.length === 0) {
+        if (!isLoadMore) {
+            setFriendTickets([])
+            setFriendHasMore(false)
+        }
+        return
+    }
+
+    setIsFriendLoading(true)
+    try {
+      const currentOffset = isLoadMore ? friendOffset : 0
+
+      const { data: ticketsData, error } = await supabase
+        .from('tickets')
+        .select(`
+          *,
+          races (
+            name, date, place_code, race_number
+          ),
+          profiles:user_id (
+            id, display_name, avatar_url
+          )
+        `)
+        .in('user_id', targetFriendIds)
+        .order('created_at', { ascending: false })
+        .range(currentOffset, currentOffset + LIMIT - 1)
+      
+      if (error) throw error
+
+      const mappedTickets = (ticketsData || []).map(mapTicketData)
+
+      if (isLoadMore) {
+        setFriendTickets(prev => {
+          const existingIds = new Set(prev.map(t => t.id))
+          const uniqueNewTickets = mappedTickets.filter(t => !existingIds.has(t.id))
+          return [...prev, ...uniqueNewTickets]
+        })
+        setFriendOffset(prev => prev + LIMIT)
+      } else {
+        setFriendTickets(mappedTickets)
+        setFriendOffset(LIMIT)
+      }
+      
+      setFriendHasMore(mappedTickets.length === LIMIT)
+
+    } catch (error) {
+      console.error('Error fetching friend tickets:', error)
+    } finally {
+      setIsFriendLoading(false)
+    }
+  }
+
+  const loadMoreFriendTickets = () => {
+    if (!isFriendLoading && friendHasMore) {
+      fetchFriendTickets(true)
+    }
+  }
+
   // 友達リクエスト数を更新する関数
   const refreshFriendRequests = useCallback(async () => {
     try {
@@ -209,6 +278,13 @@ export default function DashboardPage() {
     raceCount: 0
   })
 
+  const [friendSummary, setFriendSummary] = useState({
+    totalBet: 0,
+    totalReturn: 0,
+    winCount: 0,
+    raceCount: 0
+  })
+
   // Fetch summary data
   useEffect(() => {
     const fetchSummary = async () => {
@@ -216,6 +292,7 @@ export default function DashboardPage() {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
+        // My Summary
         let query = supabase
           .from('tickets')
           .select(`
@@ -285,7 +362,85 @@ export default function DashboardPage() {
       }
     }
 
+    const fetchFriendSummary = async () => {
+      try {
+        const targetFriendIds = filterState.selectedFriendIds
+        if (targetFriendIds.length === 0) {
+            setFriendSummary({ totalBet: 0, totalReturn: 0, winCount: 0, raceCount: 0 })
+            return
+        }
+
+        let query = supabase
+          .from('tickets')
+          .select(`
+            total_cost,
+            payout,
+            status,
+            race_id,
+            mode,
+            races!inner (
+              date,
+              place_code
+            )
+          `)
+          .in('user_id', targetFriendIds)
+
+        // displayMode
+        if (filterState.displayMode !== "BOTH") {
+          query = query.eq('mode', filterState.displayMode)
+        }
+
+        // dateRange
+        if (filterState.dateRange.from) {
+          query = query.gte('races.date', filterState.dateRange.from.toISOString())
+        }
+        if (filterState.dateRange.to) {
+          query = query.lte('races.date', filterState.dateRange.to.toISOString())
+        }
+
+        // venues
+        if (filterState.venues.length > 0 && filterState.venues.length < VENUES.length) {
+          const targetCodes = Object.entries(PLACE_CODE_MAP)
+            .filter(([_, name]) => filterState.venues.includes(name))
+            .map(([code, _]) => code)
+          
+          if (targetCodes.length > 0) {
+             query = query.in('races.place_code', targetCodes)
+          }
+        }
+
+        const { data, error } = await query
+
+        if (error) throw error
+
+        let totalBet = 0
+        let totalReturn = 0
+        const winningRaceIds = new Set<string>()
+        const raceIds = new Set<string>()
+
+        data.forEach((ticket: any) => {
+          totalBet += ticket.total_cost || 0
+          totalReturn += ticket.payout || 0
+          raceIds.add(ticket.race_id)
+          if (ticket.status === 'WIN') {
+            winningRaceIds.add(ticket.race_id)
+          }
+        })
+
+        setFriendSummary({
+          totalBet,
+          totalReturn,
+          winCount: winningRaceIds.size,
+          raceCount: raceIds.size
+        })
+
+      } catch (error) {
+        console.error('Error fetching friend summary:', error)
+      }
+    }
+
     fetchSummary()
+    fetchFriendSummary()
   }, [filterState])
 
   // データ取得
@@ -400,6 +555,8 @@ export default function DashboardPage() {
           .subscribe()
 
         // 3. フレンドのチケット取得
+        // useEffectでselectedFriendIdsの変更を検知して取得するため、ここでは削除
+        /*
         if (friendIds.length > 0) {
           const { data: friendTicketsData, error: friendTicketsError } = await supabase
             .from('tickets')
@@ -419,6 +576,7 @@ export default function DashboardPage() {
           const mappedFriendTickets: Ticket[] = (friendTicketsData || []).map(mapTicketData)
           setFriendTickets(mappedFriendTickets)
         }
+        */
 
       } catch (error) {
         console.error('Error fetching data:', error)
@@ -431,6 +589,14 @@ export default function DashboardPage() {
       if (channel) supabase.removeChannel(channel)
     }
   }, [refreshFriendRequests])
+
+  // フレンド選択が変更されたらチケットを再取得
+  useEffect(() => {
+    setFriendTickets([])
+    setFriendOffset(0)
+    setFriendHasMore(true)
+    fetchFriendTickets(false, filterState.selectedFriendIds)
+  }, [filterState.selectedFriendIds])
 
   const hasActiveFilters = useMemo(() => {
     return (
@@ -571,7 +737,17 @@ export default function DashboardPage() {
                 summary={summary}
               />
             )}
-            {activeTab === "friend" && <RaceList races={friendRaces} title={friendRaceTitle} variant="friend" />}
+            {activeTab === "friend" && (
+              <RaceList 
+                races={friendRaces} 
+                title={friendRaceTitle} 
+                variant="friend" 
+                isLoading={isFriendLoading}
+                hasMore={friendHasMore}
+                onLoadMore={loadMoreFriendTickets}
+                summary={friendSummary}
+              />
+            )}
             {activeTab === "analysis" && (
               <div className="glass-panel p-6 text-center">
                 <p className="text-muted-foreground">分析機能は準備中です</p>
@@ -593,7 +769,15 @@ export default function DashboardPage() {
               onLoadMore={loadMoreMyTickets}
               summary={summary}
             />
-            <RaceList races={friendRaces} title={friendRaceTitle} variant="friend" />
+            <RaceList 
+              races={friendRaces} 
+              title={friendRaceTitle} 
+              variant="friend" 
+              isLoading={isFriendLoading}
+              hasMore={friendHasMore}
+              onLoadMore={loadMoreFriendTickets}
+              summary={friendSummary}
+            />
           </div>
         </main>
       )}
