@@ -266,11 +266,22 @@ export function RaceList({ races, title, variant = "my", onSyncComplete, isLoadi
                       : "同期モード選択"}
                   </DialogTitle>
                   <DialogDescription className="text-gray-400">
-                    {hasAuth === false
-                      ? "IPAT連携のために認証情報を設定してください。"
-                      : isEditingAuth
-                      ? "新しい認証情報を入力し、更新してください。"
-                      : "同期するデータの範囲を選択してください。"}
+                    {hasAuth === false ? (
+                      <span>
+                        IPAT連携のために認証情報を設定してください。
+                        <a
+                          href="https://www.jra.go.jp/faq/id/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#00f3ff] hover:underline ml-2"
+                        >（各情報の確認方法）
+                        </a>
+                      </span>
+                    ) : isEditingAuth ? (
+                      "新しい認証情報を入力し、更新してください。"
+                    ) : (
+                      "同期するデータの範囲を選択してください。"
+                    )}
                   </DialogDescription>
                 </DialogHeader>
                 
