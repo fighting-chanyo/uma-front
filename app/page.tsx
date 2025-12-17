@@ -286,162 +286,162 @@ export default function DashboardPage() {
   })
 
   // Fetch summary data
+  const fetchSummary = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // My Summary
+      let query = supabase
+        .from('tickets')
+        .select(`
+          total_cost,
+          payout,
+          status,
+          race_id,
+          mode,
+          races!inner (
+            date,
+            place_code
+          )
+        `)
+        .eq('user_id', user.id)
+
+      // displayMode
+      if (filterState.displayMode !== "BOTH") {
+        query = query.eq('mode', filterState.displayMode)
+      }
+
+      // dateRange
+      if (filterState.dateRange.from) {
+        query = query.gte('races.date', filterState.dateRange.from.toISOString())
+      }
+      if (filterState.dateRange.to) {
+        query = query.lte('races.date', filterState.dateRange.to.toISOString())
+      }
+
+      // venues
+      if (filterState.venues.length > 0 && filterState.venues.length < VENUES.length) {
+        const targetCodes = Object.entries(PLACE_CODE_MAP)
+          .filter(([_, name]) => filterState.venues.includes(name))
+          .map(([code, _]) => code)
+        
+        if (targetCodes.length > 0) {
+            query = query.in('races.place_code', targetCodes)
+        }
+      }
+
+      const { data, error } = await query
+
+      if (error) throw error
+
+      let totalBet = 0
+      let totalReturn = 0
+      const winningRaceIds = new Set<string>()
+      const raceIds = new Set<string>()
+
+      data.forEach((ticket: any) => {
+        totalBet += ticket.total_cost || 0
+        totalReturn += ticket.payout || 0
+        raceIds.add(ticket.race_id)
+        if (ticket.status === 'WIN') {
+          winningRaceIds.add(ticket.race_id)
+        }
+      })
+
+      setSummary({
+        totalBet,
+        totalReturn,
+        winCount: winningRaceIds.size,
+        raceCount: raceIds.size
+      })
+
+    } catch (error) {
+      console.error('Error fetching summary:', error)
+    }
+  }, [filterState])
+
+  const fetchFriendSummary = useCallback(async () => {
+    try {
+      const targetFriendIds = filterState.selectedFriendIds
+      if (targetFriendIds.length === 0) {
+          setFriendSummary({ totalBet: 0, totalReturn: 0, winCount: 0, raceCount: 0 })
+          return
+      }
+
+      let query = supabase
+        .from('tickets')
+        .select(`
+          total_cost,
+          payout,
+          status,
+          race_id,
+          mode,
+          races!inner (
+            date,
+            place_code
+          )
+        `)
+        .in('user_id', targetFriendIds)
+
+      // displayMode
+      if (filterState.displayMode !== "BOTH") {
+        query = query.eq('mode', filterState.displayMode)
+      }
+
+      // dateRange
+      if (filterState.dateRange.from) {
+        query = query.gte('races.date', filterState.dateRange.from.toISOString())
+      }
+      if (filterState.dateRange.to) {
+        query = query.lte('races.date', filterState.dateRange.to.toISOString())
+      }
+
+      // venues
+      if (filterState.venues.length > 0 && filterState.venues.length < VENUES.length) {
+        const targetCodes = Object.entries(PLACE_CODE_MAP)
+          .filter(([_, name]) => filterState.venues.includes(name))
+          .map(([code, _]) => code)
+        
+        if (targetCodes.length > 0) {
+            query = query.in('races.place_code', targetCodes)
+        }
+      }
+
+      const { data, error } = await query
+
+      if (error) throw error
+
+      let totalBet = 0
+      let totalReturn = 0
+      const winningRaceIds = new Set<string>()
+      const raceIds = new Set<string>()
+
+      data.forEach((ticket: any) => {
+        totalBet += ticket.total_cost || 0
+        totalReturn += ticket.payout || 0
+        raceIds.add(ticket.race_id)
+        if (ticket.status === 'WIN') {
+          winningRaceIds.add(ticket.race_id)
+        }
+      })
+
+      setFriendSummary({
+        totalBet,
+        totalReturn,
+        winCount: winningRaceIds.size,
+        raceCount: raceIds.size
+      })
+
+    } catch (error) {
+      console.error('Error fetching friend summary:', error)
+    }
+  }, [filterState])
+
   useEffect(() => {
-    const fetchSummary = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
-
-        // My Summary
-        let query = supabase
-          .from('tickets')
-          .select(`
-            total_cost,
-            payout,
-            status,
-            race_id,
-            mode,
-            races!inner (
-              date,
-              place_code
-            )
-          `)
-          .eq('user_id', user.id)
-
-        // displayMode
-        if (filterState.displayMode !== "BOTH") {
-          query = query.eq('mode', filterState.displayMode)
-        }
-
-        // dateRange
-        if (filterState.dateRange.from) {
-          query = query.gte('races.date', filterState.dateRange.from.toISOString())
-        }
-        if (filterState.dateRange.to) {
-          query = query.lte('races.date', filterState.dateRange.to.toISOString())
-        }
-
-        // venues
-        if (filterState.venues.length > 0 && filterState.venues.length < VENUES.length) {
-          const targetCodes = Object.entries(PLACE_CODE_MAP)
-            .filter(([_, name]) => filterState.venues.includes(name))
-            .map(([code, _]) => code)
-          
-          if (targetCodes.length > 0) {
-             query = query.in('races.place_code', targetCodes)
-          }
-        }
-
-        const { data, error } = await query
-
-        if (error) throw error
-
-        let totalBet = 0
-        let totalReturn = 0
-        const winningRaceIds = new Set<string>()
-        const raceIds = new Set<string>()
-
-        data.forEach((ticket: any) => {
-          totalBet += ticket.total_cost || 0
-          totalReturn += ticket.payout || 0
-          raceIds.add(ticket.race_id)
-          if (ticket.status === 'WIN') {
-            winningRaceIds.add(ticket.race_id)
-          }
-        })
-
-        setSummary({
-          totalBet,
-          totalReturn,
-          winCount: winningRaceIds.size,
-          raceCount: raceIds.size
-        })
-
-      } catch (error) {
-        console.error('Error fetching summary:', error)
-      }
-    }
-
-    const fetchFriendSummary = async () => {
-      try {
-        const targetFriendIds = filterState.selectedFriendIds
-        if (targetFriendIds.length === 0) {
-            setFriendSummary({ totalBet: 0, totalReturn: 0, winCount: 0, raceCount: 0 })
-            return
-        }
-
-        let query = supabase
-          .from('tickets')
-          .select(`
-            total_cost,
-            payout,
-            status,
-            race_id,
-            mode,
-            races!inner (
-              date,
-              place_code
-            )
-          `)
-          .in('user_id', targetFriendIds)
-
-        // displayMode
-        if (filterState.displayMode !== "BOTH") {
-          query = query.eq('mode', filterState.displayMode)
-        }
-
-        // dateRange
-        if (filterState.dateRange.from) {
-          query = query.gte('races.date', filterState.dateRange.from.toISOString())
-        }
-        if (filterState.dateRange.to) {
-          query = query.lte('races.date', filterState.dateRange.to.toISOString())
-        }
-
-        // venues
-        if (filterState.venues.length > 0 && filterState.venues.length < VENUES.length) {
-          const targetCodes = Object.entries(PLACE_CODE_MAP)
-            .filter(([_, name]) => filterState.venues.includes(name))
-            .map(([code, _]) => code)
-          
-          if (targetCodes.length > 0) {
-             query = query.in('races.place_code', targetCodes)
-          }
-        }
-
-        const { data, error } = await query
-
-        if (error) throw error
-
-        let totalBet = 0
-        let totalReturn = 0
-        const winningRaceIds = new Set<string>()
-        const raceIds = new Set<string>()
-
-        data.forEach((ticket: any) => {
-          totalBet += ticket.total_cost || 0
-          totalReturn += ticket.payout || 0
-          raceIds.add(ticket.race_id)
-          if (ticket.status === 'WIN') {
-            winningRaceIds.add(ticket.race_id)
-          }
-        })
-
-        setFriendSummary({
-          totalBet,
-          totalReturn,
-          winCount: winningRaceIds.size,
-          raceCount: raceIds.size
-        })
-
-      } catch (error) {
-        console.error('Error fetching friend summary:', error)
-      }
-    }
-
     fetchSummary()
     fetchFriendSummary()
-  }, [filterState])
+  }, [fetchSummary, fetchFriendSummary])
 
   // データ取得
   useEffect(() => {
@@ -546,6 +546,8 @@ export default function DashboardPage() {
                     }
                     return [...prev, mappedTicket]
                 })
+                
+                fetchSummary()
                 
                 // 大量更新時の通知スパムを防ぐため、ここでのToastは控えめにするか、
                 // 同期処理以外の単発更新時のみに限定するのが理想ですが、一旦そのままにします
@@ -730,7 +732,10 @@ export default function DashboardPage() {
                 races={myRaces} 
                 title="MY RACES" 
                 variant="my" 
-                onSyncComplete={() => fetchMyTickets(false)}
+                onSyncComplete={() => {
+                  fetchMyTickets(false)
+                  fetchSummary()
+                }}
                 isLoading={isLoading}
                 hasMore={hasMore}
                 onLoadMore={loadMoreMyTickets}
@@ -763,7 +768,10 @@ export default function DashboardPage() {
               races={myRaces} 
               title="MY RACES" 
               variant="my" 
-              onSyncComplete={() => fetchMyTickets(false)}
+              onSyncComplete={() => {
+                fetchMyTickets(false)
+                fetchSummary()
+              }}
               isLoading={isLoading}
               hasMore={hasMore}
               onLoadMore={loadMoreMyTickets}
