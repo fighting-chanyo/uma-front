@@ -12,6 +12,8 @@ import { VENUES } from "@/types/ticket"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { getFriendRequests } from "@/app/actions/friend"
+import { getDailyRaces, RaceData } from "@/app/actions/race"
+import { format } from "date-fns"
 
 // FilterStateのdateRangeの型定義を修正
 export interface UpdatedFilterState extends Omit<FilterState, 'dateRange'> {
@@ -51,7 +53,7 @@ function groupTicketsByRace(myTickets: Ticket[], friendTickets: Ticket[]): Race[
         raceTime: "00:00", // 仮
         totalBet: 0,
         totalReturn: 0,
-        status: "PENDING", // 初期ステータス
+        status: "PENDING", // 初期ステータス（後で再計算）
         tickets: [],
       })
     }
@@ -63,19 +65,26 @@ function groupTicketsByRace(myTickets: Ticket[], friendTickets: Ticket[]): Race[
     race.totalBet += ticket.total_cost || 0
     race.totalReturn += ticket.payout || 0
 
-    // レース全体のステータスを更新
-    // 1つでもWINがあればWIN、そうでなければ1つでもPENDINGがあればPENDING、それ以外はLOSE
-    if (ticket.status === "WIN") {
-      race.status = "WIN"
-    } else if (ticket.status === "PENDING" && race.status !== "WIN") {
-      race.status = "PENDING"
-    } else if (ticket.status === "LOSE" && race.status !== "WIN" && race.status !== "PENDING") {
-      race.status = "LOSE"
-    }
+    // ここでのステータス更新は行わない
   }
 
   myTickets.forEach((t) => processTicket(t, "me"))
   friendTickets.forEach((t) => processTicket(t, "friend"))
+
+  // 全てのチケットをグルーピングした後、各レースの最終的なステータスを決定する
+  raceMap.forEach((race) => {
+    const hasPending = race.tickets.some((t) => t.status === "PENDING")
+    const hasWin = race.tickets.some((t) => t.status === "WIN")
+
+    if (hasPending) {
+      race.status = "PENDING"
+    } else if (hasWin) {
+      race.status = "WIN"
+    } else {
+      // PENDINGもWINもなければLOSE
+      race.status = "LOSE"
+    }
+  })
 
   // 日付とレース番号でソート
   return Array.from(raceMap.values()).sort((a, b) => {
@@ -97,6 +106,7 @@ export default function DashboardPage() {
   const [myTickets, setMyTickets] = useState<Ticket[]>([])
   const [friendTickets, setFriendTickets] = useState<Ticket[]>([])
   const [pendingRequestCount, setPendingRequestCount] = useState(0)
+  const [dailyRaces, setDailyRaces] = useState<RaceData[]>([])
 
   // Pagination state
   const [offset, setOffset] = useState(0)
@@ -443,6 +453,15 @@ export default function DashboardPage() {
     fetchFriendSummary()
   }, [fetchSummary, fetchFriendSummary])
 
+  useEffect(() => {
+    async function fetchRaces() {
+      const today = format(new Date(), "yyyy-MM-dd")
+      const races = await getDailyRaces(today)
+      setDailyRaces(races)
+    }
+    fetchRaces()
+  }, [])
+
   // データ取得
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
@@ -678,8 +697,6 @@ export default function DashboardPage() {
     }
   }
 
-  const nextRaceInfo = { venue: "東京", raceNumber: 11, time: "15:35" }
-
   return (
     <div className="min-h-screen bg-[#050505] relative">
       {/* Background effects */}
@@ -700,7 +717,7 @@ export default function DashboardPage() {
         onApplyFilters={setFilterState}
         hasActiveFilters={hasActiveFilters}
         onOpenFriendModal={() => setIsFriendModalOpen(true)}
-        nextRaceInfo={nextRaceInfo}
+        races={dailyRaces}
         userProfile={userProfile}
         pendingRequestCount={pendingRequestCount}
         isFilterModalOpen={isFilterModalOpen}

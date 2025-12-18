@@ -1,11 +1,15 @@
 "use client"
 
 import Link from "next/link"
+import { useState } from "react"
 import { Bell, Users, User } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { FilterModal } from "./filter-modal"
+import { RaceCountdown } from "./race-countdown"
+import { RaceScheduleModal } from "./race-schedule-modal"
 import type { Friend, FilterState } from "@/types/ticket"
+import type { RaceData } from "@/app/actions/race"
 
 interface HeaderProps {
   friends: Friend[]
@@ -13,7 +17,7 @@ interface HeaderProps {
   onApplyFilters: (filters: FilterState) => void
   hasActiveFilters: boolean
   onOpenFriendModal: () => void
-  nextRaceInfo?: { venue: string; raceNumber: number; time: string }
+  races?: RaceData[]
   userProfile?: { name: string; avatarUrl?: string } | null
   pendingRequestCount?: number
   isFilterModalOpen?: boolean
@@ -26,12 +30,14 @@ export function Header({
   onApplyFilters,
   hasActiveFilters,
   onOpenFriendModal,
-  nextRaceInfo,
+  races = [],
   userProfile,
   pendingRequestCount = 0,
   isFilterModalOpen,
   onFilterModalOpenChange,
 }: HeaderProps) {
+  const [isScheduleOpen, setIsScheduleOpen] = useState(false)
+
   return (
     <header className="sticky top-0 z-50 glass-panel border-b border-border">
       <div className="max-w-[1800px] mx-auto px-4 md:px-6 h-14 flex items-center justify-between">
@@ -47,14 +53,11 @@ export function Header({
           <span className="hidden md:block text-[9px] text-muted-foreground tracking-widest">v0.1.1-beta</span>
         </div>
 
-        {nextRaceInfo && (
-          <div className="hidden md:flex items-center gap-2 px-3 py-1 border border-[#00f3ff]/30 bg-[#00f3ff]/5">
-            <span className="text-[10px] text-[#00f3ff] font-mono tracking-wider">NEXT:</span>
-            <span className="text-sm font-bold text-foreground">
-              {nextRaceInfo.venue} {nextRaceInfo.raceNumber}R
-            </span>
-            <span className="text-sm font-mono text-[#00f3ff]">{nextRaceInfo.time}</span>
-          </div>
+        {races.length > 0 && (
+          <RaceCountdown 
+            races={races} 
+            onOpenSchedule={() => setIsScheduleOpen(true)} 
+          />
         )}
 
         {/* Right section */}
@@ -98,6 +101,12 @@ export function Header({
           </Link>
         </div>
       </div>
+
+      <RaceScheduleModal 
+        isOpen={isScheduleOpen} 
+        onClose={() => setIsScheduleOpen(false)} 
+        races={races} 
+      />
     </header>
   )
 }
