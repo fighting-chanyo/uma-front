@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { Bell, Users, User } from "lucide-react"
+import { Users, User } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { FilterModal } from "./filter-modal"
@@ -70,12 +70,6 @@ export function Header({
             open={isFilterModalOpen}
             onOpenChange={onFilterModalOpenChange}
           />
-
-          {/* Notification Bell */}
-          <Button variant="ghost" size="icon" className="relative h-9 w-9 hover:bg-white/5">
-            <Bell className="h-5 w-5 text-muted-foreground" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-[#ff003c] rounded-full neon-pulse" />
-          </Button>
 
           {/* Friend Request Button */}
           <Button variant="ghost" size="icon" className="relative h-9 w-9 hover:bg-white/5" onClick={onOpenFriendModal}>

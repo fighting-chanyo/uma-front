@@ -173,7 +173,7 @@ export default function DashboardPage() {
           )
         `)
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
+        .order('race_id', { ascending: false })
         .range(currentOffset, currentOffset + LIMIT - 1)
       
       if (myTicketsError) throw myTicketsError
@@ -237,7 +237,7 @@ export default function DashboardPage() {
           )
         `)
         .in('user_id', targetFriendIds)
-        .order('created_at', { ascending: false })
+        .order('race_id', { ascending: false })
         .range(currentOffset, currentOffset + LIMIT - 1)
       
       if (error) throw error
