@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { RaceData } from "@/app/actions/race"
 import { format, differenceInSeconds, addMinutes } from "date-fns"
+import { getNow } from "@/lib/time-utils"
 
 const PLACE_CODE_MAP: Record<string, string> = {
   "01": "札幌", "02": "函館", "03": "福島", "04": "新潟",
@@ -16,10 +17,10 @@ interface RaceCountdownProps {
 }
 
 export function RaceCountdown({ races, onOpenSchedule }: RaceCountdownProps) {
-  const [now, setNow] = useState(new Date())
+  const [now, setNow] = useState(getNow())
 
   useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000)
+    const timer = setInterval(() => setNow(getNow()), 1000)
     return () => clearInterval(timer)
   }, [])
 

@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { RaceData } from "@/app/actions/race"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
+import { getNow } from "@/lib/time-utils"
 
 const PLACE_CODE_MAP: Record<string, string> = {
   "01": "札幌", "02": "函館", "03": "福島", "04": "新潟",
@@ -19,7 +20,7 @@ interface RaceScheduleModalProps {
   currentDate?: Date // For testing or specific date view
 }
 
-export function RaceScheduleModal({ isOpen, onClose, races, currentDate = new Date() }: RaceScheduleModalProps) {
+export function RaceScheduleModal({ isOpen, onClose, races, currentDate }: RaceScheduleModalProps) {
   // Group races by venue (place_code)
   const scheduleData = useMemo(() => {
     const venues = Array.from(new Set(races.map(r => r.place_code))).sort()
@@ -41,7 +42,7 @@ export function RaceScheduleModal({ isOpen, onClose, races, currentDate = new Da
 
   // Find the next race to highlight
   const nextRaceId = useMemo(() => {
-    const now = new Date()
+    const now = getNow()
     const upcomingRaces = races.filter(r => {
       if (!r.post_time) return false
       return new Date(r.post_time) > now
@@ -62,7 +63,7 @@ export function RaceScheduleModal({ isOpen, onClose, races, currentDate = new Da
   const getRaceStatus = (race: RaceData) => {
     if (!race.post_time) return "unknown"
     const raceTime = new Date(race.post_time)
-    const now = new Date()
+    const now = getNow()
     
     if (race.id === nextRaceId) return "next"
     if (raceTime < now) return "finished"
@@ -74,57 +75,59 @@ export function RaceScheduleModal({ isOpen, onClose, races, currentDate = new Da
     return format(new Date(dateStr), "HH:mm")
   }
 
-  const displayDate = races.length > 0 ? races[0].date : format(new Date(), "yyyy-MM-dd")
+  const displayDate = races.length > 0 ? races[0].date : format(getNow(), "yyyy-MM-dd")
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl bg-[#0a0a0a] border-[#333] text-white p-0 overflow-hidden">
-        <DialogHeader className="px-6 py-4 border-b border-[#333]">
-          <DialogTitle className="text-lg font-bold">
-            {displayDate} 出走時刻一覧
-          </DialogTitle>
-        </DialogHeader>
-        
-        <div className="p-6">
-          <div className="w-full overflow-x-auto">
-            <table className="w-full border-collapse text-center text-sm">
-              <thead>
-                <tr>
-                  <th className="p-3 border-b border-[#333] text-muted-foreground font-normal w-16">レース</th>
-                  {scheduleData.venues.map(code => (
-                    <th key={code} className="p-3 border-b border-[#333] text-muted-foreground font-normal">
-                      {PLACE_CODE_MAP[code] || code}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {Array.from({ length: 12 }, (_, i) => i + 1).map(raceNum => (
-                  <tr key={raceNum} className="border-b border-[#333]/50 last:border-0">
-                    <td className="p-3 text-muted-foreground">{raceNum}R</td>
-                    {scheduleData.venues.map(code => {
-                      const race = scheduleData.grid[raceNum][code]
-                      if (!race) return <td key={code} className="p-3 text-muted-foreground">-</td>
-
-                      const status = getRaceStatus(race)
-                      
-                      return (
-                        <td key={code} className="p-0">
-                          <div className={cn(
-                            "py-3 px-2 transition-colors",
-                            status === "finished" && "text-muted-foreground bg-[#1a1a1a]",
-                            status === "next" && "bg-[#00ff00] text-black font-bold",
-                            status === "future" && "text-white hover:bg-white/5"
-                          )}>
-                            {formatTime(race.post_time)}
-                          </div>
-                        </td>
-                      )
-                    })}
+      <DialogContent className="max-w-2xl glass-panel border-none text-white p-0 overflow-hidden">
+        <div className="hud-border">
+          <DialogHeader className="px-4 py-3 border-b border-white/10">
+            <DialogTitle className="text-base font-bold tracking-wider text-accent">
+              {displayDate} 出走時刻一覧
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="p-4">
+            <div className="w-full overflow-x-auto">
+              <table className="w-full border-collapse text-center text-xs">
+                <thead>
+                  <tr>
+                    <th className="p-2 border-b border-white/10 text-muted-foreground font-medium w-12 whitespace-nowrap">レース</th>
+                    {scheduleData.venues.map(code => (
+                      <th key={code} className="p-2 border-b border-white/10 text-muted-foreground font-medium">
+                        {PLACE_CODE_MAP[code] || code}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map(raceNum => (
+                    <tr key={raceNum} className="border-b border-white/5 last:border-0">
+                      <td className="p-2 text-muted-foreground font-mono">{raceNum}R</td>
+                      {scheduleData.venues.map(code => {
+                        const race = scheduleData.grid[raceNum][code]
+                        if (!race) return <td key={code} className="p-2 text-muted-foreground/30">-</td>
+
+                        const status = getRaceStatus(race)
+                        
+                        return (
+                          <td key={code} className="p-0">
+                            <div className={cn(
+                              "py-2 px-1 transition-all duration-300 font-mono",
+                              status === "finished" && "text-muted-foreground/50 bg-white/[0.02]",
+                              status === "next" && "bg-[#00ff41]/20 text-[#00ff41] font-bold ring-1 ring-[#00ff41]/50 ring-inset neon-glow-green",
+                              status === "future" && "text-white/90 hover:bg-white/5"
+                            )}>
+                              {formatTime(race.post_time)}
+                            </div>
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </DialogContent>

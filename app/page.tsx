@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast"
 import { getFriendRequests } from "@/app/actions/friend"
 import { getDailyRaces, RaceData } from "@/app/actions/race"
 import { format } from "date-fns"
+import { getNow } from "@/lib/time-utils"
 
 // FilterStateのdateRangeの型定義を修正
 export interface UpdatedFilterState extends Omit<FilterState, 'dateRange'> {
@@ -455,7 +456,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function fetchRaces() {
-      const today = format(new Date(), "yyyy-MM-dd")
+      const today = format(getNow(), "yyyy-MM-dd")
       const races = await getDailyRaces(today)
       setDailyRaces(races)
     }
