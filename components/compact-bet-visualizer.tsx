@@ -43,7 +43,11 @@ export function CompactBetVisualizer({ content }: CompactBetVisualizerProps) {
         </span>
         <span className="text-[10px] font-bold text-white/70">軸:</span>
         <span className="text-xs font-mono text-white tracking-wide">
-          {content.axis?.map(toCircledNumber).join("") || "-"}
+          {content.axis?.map((num, idx) => {
+            const horse = toCircledNumber(num)
+            const pos = content.positions?.[idx]
+            return pos ? `${horse}(${pos}着)` : horse
+          }).join("") || "-"}
         </span>
         <span className="text-muted-foreground">→</span>
         <span className="text-[10px] font-bold text-white/70">相手:</span>
@@ -54,8 +58,10 @@ export function CompactBetVisualizer({ content }: CompactBetVisualizerProps) {
     )
   }
 
-  // フォーメーション: インライン区切り表示
+  // フォーメーション
   if (content.method === "FORMATION" && content.selections) {
+    const dataToUse = content.selections
+
     // 3連単/3連複系か、それ以外（馬連/ワイドなど）かで着順のラベルを決定
     const isTrifectaLike =
       content.type.includes("TRIFECTA") || content.type.includes("TRIO")
@@ -63,7 +69,7 @@ export function CompactBetVisualizer({ content }: CompactBetVisualizerProps) {
       ? ["1着", "2着", "3着"]
       : ["1頭目", "2頭目"]
 
-    const positions = content.selections
+    const positions = dataToUse
       .map((data, index) => ({
         label: defaultLabels[index],
         data,
@@ -72,9 +78,11 @@ export function CompactBetVisualizer({ content }: CompactBetVisualizerProps) {
 
     return (
       <div className="flex items-center gap-1.5 py-1 flex-wrap text-xs">
-        <span className="text-[10px] font-bold text-white bg-white/10 px-1.5 py-0.5 border border-white/30">
-          フォーメーション
-        </span>
+        {content.method === "FORMATION" && (
+          <span className="text-[10px] font-bold text-white bg-white/10 px-1.5 py-0.5 border border-white/30">
+            フォーメーション
+          </span>
+        )}
         {positions.map((pos, idx) => (
           <span key={idx} className="flex items-center gap-1">
             <span className="text-[10px] text-muted-foreground">

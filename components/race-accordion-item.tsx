@@ -84,6 +84,11 @@ export function RaceAccordionItem({ race, index, variant = "my" }: RaceAccordion
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-xs md:text-sm font-medium text-foreground truncate">{race.raceName}</span>
           {race.status === "WIN" && <Trophy className="w-4 h-4 text-[#00ff41] flex-shrink-0" />}
+          {race.status === "PENDING" && (
+            <span className="text-[10px] font-bold text-[#00f3ff] bg-[#00f3ff]/10 px-1.5 py-0.5 rounded border border-[#00f3ff]/30">
+              未確定
+            </span>
+          )}
         </div>
 
         {/* Balance */}

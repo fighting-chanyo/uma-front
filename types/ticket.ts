@@ -14,6 +14,8 @@ export type TicketContent = {
   partners?: number[]
   /** 選択馬の二次元配列 (例: [[1,2], [1,3], [2,3,4]]) - フォーメーション用 */
   selections: number[][]
+  /** 着順指定の配列 (例: [1, 2]) - ながし(軸馬の着順)用 */
+  positions?: number[]
 }
 
 /**
