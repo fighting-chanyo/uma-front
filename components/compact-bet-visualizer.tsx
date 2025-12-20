@@ -6,9 +6,10 @@ interface CompactBetVisualizerProps {
 }
 
 // 数値を丸数字に変換
-function toCircledNumber(num: number): string {
+function toCircledNumber(num: number | string): string {
+  const n = typeof num === 'string' ? parseInt(num, 10) : num;
   const circled = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩", "⑪", "⑫", "⑬", "⑭", "⑮", "⑯", "⑰", "⑱"]
-  return circled[num - 1] || String(num)
+  return circled[n - 1] || String(n)
 }
 
 export function CompactBetVisualizer({ content }: CompactBetVisualizerProps) {
@@ -36,24 +37,85 @@ export function CompactBetVisualizer({ content }: CompactBetVisualizerProps) {
       }
       return isMulti ? "流し(マルチ)" : "流し"
     }
+
+    // 軸馬を着順ごとにグループ化
+    const axisGroups = new Map<number, string[]>()
+    const axisNoPos: string[] = []
+
+    if (content.axis) {
+      content.axis.forEach((horse, idx) => {
+        const pos = content.positions?.[idx]
+        if (pos) {
+          if (!axisGroups.has(pos)) {
+            axisGroups.set(pos, [])
+          }
+          axisGroups.get(pos)!.push(horse)
+        } else {
+          axisNoPos.push(horse)
+        }
+      })
+    }
+
+    const sortedPositions = Array.from(axisGroups.keys()).sort((a, b) => a - b)
+
     return (
       <div className="flex items-center gap-1.5 py-1 flex-wrap">
-        <span className="text-[10px] font-bold text-white bg-white/10 px-1.5 py-0.5 border border-white/30">
+        <span className="text-[10px] font-bold text-white bg-white/10 px-1.5 py-0.5 border border-white/30 mr-1">
           {getNagashiLabel()}
         </span>
-        <span className="text-[10px] font-bold text-white/70">軸:</span>
-        <span className="text-xs font-mono text-white tracking-wide">
-          {content.axis?.map((num, idx) => {
-            const horse = toCircledNumber(num)
-            const pos = content.positions?.[idx]
-            return pos ? `${horse}(${pos}着)` : horse
-          }).join("") || "-"}
-        </span>
-        <span className="text-muted-foreground">→</span>
-        <span className="text-[10px] font-bold text-white/70">相手:</span>
-        <span className="text-xs font-mono text-white tracking-wide">
-          {content.partners?.map(toCircledNumber).join("") || "-"}
-        </span>
+
+        {(() => {
+          const dataParts: React.ReactNode[] = []
+
+          // 1. 着順指定ありの軸馬
+          sortedPositions.forEach((pos) => {
+            const horses = axisGroups.get(pos)
+            if (horses && horses.length > 0) {
+              dataParts.push(
+                <span key={`axis-${pos}`} className="flex items-center gap-1">
+                  <span className="text-[10px] font-bold text-white/70">{pos}着軸:</span>
+                  <span className="text-xs font-mono text-white tracking-wide">
+                    {horses.map(toCircledNumber).join("")}
+                  </span>
+                </span>
+              )
+            }
+          })
+
+          // 2. 着順指定なしの軸馬 (マルチなど)
+          if (axisNoPos.length > 0) {
+            dataParts.push(
+              <span key="axis-nopos" className="flex items-center gap-1">
+                <span className="text-[10px] font-bold text-white/70">軸:</span>
+                <span className="text-xs font-mono text-white tracking-wide">
+                  {axisNoPos.map(toCircledNumber).join("")}
+                </span>
+              </span>
+            )
+          }
+
+          // 3. 相手馬
+          if (content.partners && content.partners.length > 0) {
+            dataParts.push(
+              <span key="partners" className="flex items-center gap-1">
+                <span className="text-[10px] font-bold text-white/70">相手:</span>
+                <span className="text-xs font-mono text-white tracking-wide">
+                  {content.partners.map(toCircledNumber).join("")}
+                </span>
+              </span>
+            )
+          }
+
+          // セパレーターで結合して表示
+          return dataParts.map((part, idx) => (
+            <div key={idx} className="flex items-center">
+              {part}
+              {idx < dataParts.length - 1 && (
+                <span className="text-muted-foreground/50 mx-1.5">|</span>
+              )}
+            </div>
+          ))
+        })()}
       </div>
     )
   }

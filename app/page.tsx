@@ -325,10 +325,10 @@ export default function DashboardPage() {
 
       // dateRange
       if (filterState.dateRange.from) {
-        query = query.gte('races.date', filterState.dateRange.from.toISOString())
+        query = query.gte('races.date', format(filterState.dateRange.from, 'yyyy-MM-dd'))
       }
       if (filterState.dateRange.to) {
-        query = query.lte('races.date', filterState.dateRange.to.toISOString())
+        query = query.lte('races.date', format(filterState.dateRange.to, 'yyyy-MM-dd'))
       }
 
       // venues
@@ -351,14 +351,16 @@ export default function DashboardPage() {
       const winningRaceIds = new Set<string>()
       const raceIds = new Set<string>()
 
-      data.forEach((ticket: any) => {
-        totalBet += ticket.total_cost || 0
-        totalReturn += ticket.payout || 0
-        raceIds.add(ticket.race_id)
-        if (ticket.status === 'WIN') {
-          winningRaceIds.add(ticket.race_id)
-        }
-      })
+      if (data) {
+        data.forEach((ticket: any) => {
+          totalBet += ticket.total_cost || 0
+          totalReturn += ticket.payout || 0
+          raceIds.add(ticket.race_id)
+          if (ticket.status === 'WIN') {
+            winningRaceIds.add(ticket.race_id)
+          }
+        })
+      }
 
       setSummary({
         totalBet,
@@ -367,8 +369,14 @@ export default function DashboardPage() {
         raceCount: raceIds.size
       })
 
-    } catch (error) {
-      console.error('Error fetching summary:', error)
+    } catch (error: any) {
+      console.error('Error fetching summary:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        error
+      })
     }
   }, [filterState])
 
@@ -402,10 +410,10 @@ export default function DashboardPage() {
 
       // dateRange
       if (filterState.dateRange.from) {
-        query = query.gte('races.date', filterState.dateRange.from.toISOString())
+        query = query.gte('races.date', format(filterState.dateRange.from, 'yyyy-MM-dd'))
       }
       if (filterState.dateRange.to) {
-        query = query.lte('races.date', filterState.dateRange.to.toISOString())
+        query = query.lte('races.date', format(filterState.dateRange.to, 'yyyy-MM-dd'))
       }
 
       // venues
@@ -428,14 +436,16 @@ export default function DashboardPage() {
       const winningRaceIds = new Set<string>()
       const raceIds = new Set<string>()
 
-      data.forEach((ticket: any) => {
-        totalBet += ticket.total_cost || 0
-        totalReturn += ticket.payout || 0
-        raceIds.add(ticket.race_id)
-        if (ticket.status === 'WIN') {
-          winningRaceIds.add(ticket.race_id)
-        }
-      })
+      if (data) {
+        data.forEach((ticket: any) => {
+          totalBet += ticket.total_cost || 0
+          totalReturn += ticket.payout || 0
+          raceIds.add(ticket.race_id)
+          if (ticket.status === 'WIN') {
+            winningRaceIds.add(ticket.race_id)
+          }
+        })
+      }
 
       setFriendSummary({
         totalBet,
@@ -444,8 +454,14 @@ export default function DashboardPage() {
         raceCount: raceIds.size
       })
 
-    } catch (error) {
-      console.error('Error fetching friend summary:', error)
+    } catch (error: any) {
+      console.error('Error fetching friend summary:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        error
+      })
     }
   }, [filterState])
 

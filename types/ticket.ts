@@ -8,12 +8,12 @@ export type TicketContent = {
   method: "NORMAL" | "BOX" | "FORMATION" | "NAGASHI"
   /** マルチフラグ (true/false) */
   multi?: boolean
-  /** 軸馬配列 (例: [1]) - ながし/フォーメーション用 */
-  axis?: number[]
-  /** 相手馬配列 (例: [2,3,4]) - ながし用 */
-  partners?: number[]
-  /** 選択馬の二次元配列 (例: [[1,2], [1,3], [2,3,4]]) - フォーメーション用 */
-  selections: number[][]
+  /** 軸馬配列 (例: ["01"]) - ながし/フォーメーション用 */
+  axis?: string[]
+  /** 相手馬配列 (例: ["02","03","04"]) - ながし用 */
+  partners?: string[]
+  /** 選択馬の二次元配列 (例: [["01","02"], ["01","03"], ["02","03","04"]]) - フォーメーション用 */
+  selections: string[][]
   /** 着順指定の配列 (例: [1, 2]) - ながし(軸馬の着順)用 */
   positions?: number[]
 }

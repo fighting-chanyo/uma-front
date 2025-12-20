@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
+import { BettingWizard } from "./betting/betting-wizard"
 
 interface RaceListProps {
   races: Race[]
@@ -45,6 +46,10 @@ export function RaceList({ races, title, variant = "my", onSyncComplete, isLoadi
   // 編集モードを管理するためのStateを追加
   const [isEditingAuth, setIsEditingAuth] = useState(false)
   const [currentAuth, setCurrentAuth] = useState<IpatAuthData | null>(null)
+
+  // Betting Wizard State
+  const [isBettingWizardOpen, setIsBettingWizardOpen] = useState(false)
+  const [bettingWizardMode, setBettingWizardMode] = useState<'manual' | 'image'>('manual')
 
   useEffect(() => {
     // ダイアログが開かれ、かつ編集モードでない場合に認証状態をチェック
@@ -194,13 +199,28 @@ export function RaceList({ races, title, variant = "my", onSyncComplete, isLoadi
   const balance = totalReturn - totalBet
 
   const handleSync = async (type: "ipat" | "ocr" | "manual") => {
-    setIsSyncing(true)
-    await new Promise((r) => setTimeout(r, 2000))
-    setIsSyncing(false)
+    if (type === "ocr") {
+      setBettingWizardMode("image")
+      setIsBettingWizardOpen(true)
+    } else if (type === "manual") {
+      setBettingWizardMode("manual")
+      setIsBettingWizardOpen(true)
+    } else {
+      // Existing IPAT sync logic if any, or just placeholder
+      setIsSyncing(true)
+      await new Promise((r) => setTimeout(r, 2000))
+      setIsSyncing(false)
+    }
   }
 
   return (
     <div className="flex flex-col h-full">
+      <BettingWizard 
+        open={isBettingWizardOpen} 
+        onOpenChange={setIsBettingWizardOpen}
+        defaultMode={bettingWizardMode}
+      />
+
       <div className="flex items-stretch gap-2 mb-3">
         <div className="glass-panel p-3 md:p-4 hud-border relative overflow-hidden flex-1">
           <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-[#00f3ff]/50" />
