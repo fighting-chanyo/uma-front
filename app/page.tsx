@@ -15,6 +15,7 @@ import { getFriendRequests } from "@/app/actions/friend"
 import { getDailyRaces, RaceData } from "@/app/actions/race"
 import { format } from "date-fns"
 import { getNow } from "@/lib/time-utils"
+import { PLACE_CODE_TO_NAME } from "@/lib/betting-utils"
 
 // FilterStateのdateRangeの型定義を修正
 export interface UpdatedFilterState extends Omit<FilterState, 'dateRange'> {
@@ -27,13 +28,7 @@ export interface UpdatedFilterState extends Omit<FilterState, 'dateRange'> {
 // 開発用モックユーザーID
 const MOCK_USER_ID = "03e8d27e-6011-4f5b-bbfd-53c094e4e25f"
 
-// 会場コード変換マップ
-const PLACE_CODE_MAP: Record<string, string> = {
-  "01": "札幌", "02": "函館", "03": "福島", "04": "新潟",
-  "05": "東京", "06": "中山", "07": "中京", "08": "京都",
-  "09": "阪神", "10": "小倉"
-}
-const getVenueName = (code: string) => PLACE_CODE_MAP[code] || code
+const getVenueName = (code: string) => PLACE_CODE_TO_NAME[code] || code
 
 // チケットをレース単位にグルーピング
 function groupTicketsByRace(myTickets: Ticket[], friendTickets: Ticket[]): Race[] {
@@ -333,7 +328,7 @@ export default function DashboardPage() {
 
       // venues
       if (filterState.venues.length > 0 && filterState.venues.length < VENUES.length) {
-        const targetCodes = Object.entries(PLACE_CODE_MAP)
+        const targetCodes = Object.entries(PLACE_CODE_TO_NAME)
           .filter(([_, name]) => filterState.venues.includes(name))
           .map(([code, _]) => code)
         
@@ -418,7 +413,7 @@ export default function DashboardPage() {
 
       // venues
       if (filterState.venues.length > 0 && filterState.venues.length < VENUES.length) {
-        const targetCodes = Object.entries(PLACE_CODE_MAP)
+        const targetCodes = Object.entries(PLACE_CODE_TO_NAME)
           .filter(([_, name]) => filterState.venues.includes(name))
           .map(([code, _]) => code)
         

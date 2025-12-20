@@ -4,12 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { RaceData } from "@/app/actions/race"
 import { format, differenceInSeconds, addMinutes } from "date-fns"
 import { getNow } from "@/lib/time-utils"
-
-const PLACE_CODE_MAP: Record<string, string> = {
-  "01": "札幌", "02": "函館", "03": "福島", "04": "新潟",
-  "05": "東京", "06": "中山", "07": "中京", "08": "京都",
-  "09": "阪神", "10": "小倉"
-}
+import { PLACE_CODE_TO_NAME } from "@/lib/betting-utils"
 
 interface RaceCountdownProps {
   races: RaceData[]
@@ -53,7 +48,7 @@ export function RaceCountdown({ races, onOpenSchedule }: RaceCountdownProps) {
     return `${m}:${s.toString().padStart(2, '0')}`
   }
 
-  const venueName = PLACE_CODE_MAP[nextRace.place_code] || nextRace.place_code
+  const venueName = PLACE_CODE_TO_NAME[nextRace.place_code] || nextRace.place_code
   const timeStr = format(raceTime, "HH:mm")
 
   return (

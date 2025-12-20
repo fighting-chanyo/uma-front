@@ -32,3 +32,22 @@ export async function getDailyRaces(dateStr: string): Promise<RaceData[]> {
   
   return data as RaceData[]
 }
+
+export async function getRaceName(date: string, placeCode: string, raceNumber: number): Promise<string | null> {
+  const supabase = await createClient()
+  
+  const { data, error } = await supabase
+    .from('races')
+    .select('name')
+    .eq('date', date)
+    .eq('place_code', placeCode)
+    .eq('race_number', raceNumber)
+    .single()
+  
+  if (error) {
+    // console.error('Error fetching race name:', error)
+    return null
+  }
+  
+  return data?.name || null
+}

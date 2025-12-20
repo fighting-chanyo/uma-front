@@ -6,12 +6,7 @@ import { RaceData } from "@/app/actions/race"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { getNow } from "@/lib/time-utils"
-
-const PLACE_CODE_MAP: Record<string, string> = {
-  "01": "札幌", "02": "函館", "03": "福島", "04": "新潟",
-  "05": "東京", "06": "中山", "07": "中京", "08": "京都",
-  "09": "阪神", "10": "小倉"
-}
+import { PLACE_CODE_TO_NAME } from "@/lib/betting-utils"
 
 interface RaceScheduleModalProps {
   isOpen: boolean
@@ -95,7 +90,7 @@ export function RaceScheduleModal({ isOpen, onClose, races, currentDate }: RaceS
                     <th className="p-2 border-b border-white/10 text-muted-foreground font-medium w-12 whitespace-nowrap">レース</th>
                     {scheduleData.venues.map(code => (
                       <th key={code} className="p-2 border-b border-white/10 text-muted-foreground font-medium">
-                        {PLACE_CODE_MAP[code] || code}
+                        {PLACE_CODE_TO_NAME[code] || code}
                       </th>
                     ))}
                   </tr>

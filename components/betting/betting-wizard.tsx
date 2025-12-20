@@ -14,7 +14,7 @@ export function BettingWizard({ open, onOpenChange, defaultMode = 'manual' }: Be
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] w-full h-[90vh] overflow-y-auto bg-background/95 backdrop-blur-xl border-primary/20">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold tracking-wider text-primary">
+          <DialogTitle className="text-2xl font-bold tracking-wider text-accent">
             馬券情報登録
           </DialogTitle>
         </DialogHeader>

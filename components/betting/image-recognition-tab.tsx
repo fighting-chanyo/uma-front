@@ -72,7 +72,7 @@ export function ImageRecognitionTab({ onAddBet }: ImageRecognitionTabProps) {
       {/* Left: Upload Area */}
       <div className="space-y-4">
         <div className="bg-card/30 p-4 rounded-lg border border-border/50 h-full flex flex-col">
-          <h2 className="text-lg font-semibold mb-4 text-primary">BET SLIP UPLOAD</h2>
+          <h2 className="text-lg font-semibold mb-4 text-accent">BET SLIP UPLOAD</h2>
           
           <div 
             className={cn(
@@ -135,10 +135,10 @@ export function ImageRecognitionTab({ onAddBet }: ImageRecognitionTabProps) {
             <div className="absolute top-0 left-0 w-full h-1 bg-destructive/50" />
             <div className="flex items-center gap-2 mb-4 text-destructive">
               <AlertTriangle className="w-5 h-5" />
-              <h2 className="text-lg font-semibold">PARTIAL ANALYSIS FAILED</h2>
+              <h2 className="text-lg font-semibold">一部の情報を解析できませんでした。</h2>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Some information could not be read. Please correct the missing fields below.
+              解析できなかった項目を修正してください。
             </p>
             
             <BettingForm 

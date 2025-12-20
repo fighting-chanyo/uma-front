@@ -1,6 +1,24 @@
 
 import { BetType, BetMethod } from "@/types/betting";
 
+export const PLACE_NAME_TO_CODE: Record<string, string> = {
+  '札幌': '01',
+  '函館': '02',
+  '福島': '03',
+  '新潟': '04',
+  '東京': '05',
+  '中山': '06',
+  '中京': '07',
+  '京都': '08',
+  '阪神': '09',
+  '小倉': '10',
+};
+
+export const PLACE_CODE_TO_NAME: Record<string, string> = Object.entries(PLACE_NAME_TO_CODE).reduce((acc, [name, code]) => {
+  acc[code] = name;
+  return acc;
+}, {} as Record<string, string>);
+
 export function calculateCombinations(
   type: BetType,
   method: BetMethod,

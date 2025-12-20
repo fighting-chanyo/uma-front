@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon, AlertCircle } from 'lucide-react';
+import { Calendar as CalendarIcon, AlertCircle, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -23,15 +23,15 @@ interface BettingFormProps {
   className?: string;
 }
 
-const BET_TYPES: { value: BetType; label: string; color: string }[] = [
-  { value: 'WIN', label: '単勝', color: 'bg-green-500' },
-  { value: 'PLACE', label: '複勝', color: 'bg-blue-500' },
-  { value: 'QUINELLA', label: '馬連', color: 'bg-red-500' },
-  { value: 'QUINELLA_PLACE', label: 'ワイド', color: 'bg-green-600' }, // Slightly different green
-  { value: 'EXACTA', label: '馬単', color: 'bg-orange-500' },
-  { value: 'TRIO', label: '3連複', color: 'bg-blue-400' },
-  { value: 'TRIFECTA', label: '3連単', color: 'bg-pink-500' },
-  { value: 'BRACKET_QUINELLA', label: '枠連', color: 'bg-orange-600' },
+const BET_TYPES: { value: BetType; label: string }[] = [
+  { value: 'WIN', label: '単勝' },
+  { value: 'PLACE', label: '複勝' },
+  { value: 'QUINELLA', label: '馬連' },
+  { value: 'QUINELLA_PLACE', label: 'ワイド' },
+  { value: 'EXACTA', label: '馬単' },
+  { value: 'TRIO', label: '3連複' },
+  { value: 'TRIFECTA', label: '3連単' },
+  { value: 'BRACKET_QUINELLA', label: '枠連' },
 ];
 
 const BET_METHODS: { value: BetMethod; label: string }[] = [
@@ -61,20 +61,30 @@ export function BettingForm({ initialState, onAdd, className }: BettingFormProps
   const [positions, setPositions] = useState<number[]>(initialState?.positions || []);
   const [multi, setMulti] = useState<boolean>(initialState?.multi || false);
   
-  const [mode, setMode] = useState<'REAL' | 'AIR'>('AIR');
+  const [mode, setMode] = useState<'REAL' | 'AIR'>('REAL');
   const [amount, setAmount] = useState<number>(initialState?.amount || 100);
   
   const [combinations, setCombinations] = useState(0);
   const [totalCost, setTotalCost] = useState(0);
+
+  const [showError, setShowError] = useState(false);
 
   // Recalculate combinations and cost
   useEffect(() => {
     const points = calculateCombinations(betType, betMethod, selections, axis, partners, multi);
     setCombinations(points);
     setTotalCost(points * amount);
+    setShowError(false); // Hide error when inputs change
   }, [betType, betMethod, selections, axis, partners, multi, amount]);
 
+  const isMissingInfo = !date || !place || !raceNo || !amount || combinations === 0;
+
   const handleAdd = () => {
+    if (isMissingInfo) {
+      setShowError(true);
+      return;
+    }
+    
     if (!date) return;
     
     const bet: TicketFormState & { mode: 'REAL' | 'AIR' } = {
@@ -103,9 +113,8 @@ export function BettingForm({ initialState, onAdd, className }: BettingFormProps
     setAxis([]);
     setPartners([]);
     setPositions([]);
+    setShowError(false);
   };
-
-  const isMissingInfo = !date || !place || !raceNo || !amount || combinations === 0;
 
   return (
     <div className={cn("space-y-6 p-4 bg-card/50 rounded-lg border border-border", className)}>
@@ -172,8 +181,8 @@ export function BettingForm({ initialState, onAdd, className }: BettingFormProps
               type="button"
               variant={betType === type.value ? "default" : "outline"}
               className={cn(
-                betType === type.value && type.color,
-                "min-w-[80px]"
+                "min-w-[80px]",
+                betType === type.value && 'bg-accent text-accent-foreground hover:bg-accent/90'
               )}
               onClick={() => {
                 setBetType(type.value);
@@ -241,7 +250,7 @@ export function BettingForm({ initialState, onAdd, className }: BettingFormProps
               size="sm"
               variant={mode === 'REAL' ? 'default' : 'ghost'}
               onClick={() => setMode('REAL')}
-              className={mode === 'REAL' ? 'bg-primary text-primary-foreground' : ''}
+              className={cn(mode === 'REAL' && 'bg-accent text-accent-foreground hover:bg-accent/90')}
             >
               リアル
             </Button>
@@ -250,7 +259,7 @@ export function BettingForm({ initialState, onAdd, className }: BettingFormProps
               size="sm"
               variant={mode === 'AIR' ? 'default' : 'ghost'}
               onClick={() => setMode('AIR')}
-              className={mode === 'AIR' ? 'bg-cyan-500 text-white' : ''}
+              className={cn(mode === 'AIR' && 'bg-accent text-accent-foreground hover:bg-accent/90')}
             >
               エア
             </Button>
@@ -280,17 +289,17 @@ export function BettingForm({ initialState, onAdd, className }: BettingFormProps
         
         <Button 
           onClick={handleAdd} 
-          className="w-full md:w-auto min-w-[200px] bg-primary hover:bg-primary/90"
-          disabled={isMissingInfo}
+          className="w-full md:w-auto min-w-[200px] bg-accent text-accent-foreground hover:bg-accent/90"
         >
-          {initialState ? 'UPDATE BET' : 'ADD BET'}
+          <Plus className="w-4 h-4 mr-2" />
+          {initialState ? '買い目更新' : '買い目追加'}
         </Button>
       </div>
       
-      {isMissingInfo && (
+      {showError && isMissingInfo && (
         <div className="flex items-center text-destructive text-sm">
           <AlertCircle className="w-4 h-4 mr-2" />
-          <span>Please fill in all required fields and select at least one combination.</span>
+          <span>すべての必須項目を入力し、少なくとも1つの組み合わせを選択してください。</span>
         </div>
       )}
     </div>
