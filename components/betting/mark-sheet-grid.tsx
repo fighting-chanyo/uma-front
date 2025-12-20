@@ -204,10 +204,17 @@ export function MarkSheetGrid({
   }
 
   // NORMAL or BOX
+  let label = "選抜馬";
+  if (method === 'BOX') {
+    label = "ボックス選択馬";
+  } else if (method === 'NORMAL' && (type === 'WIN' || type === 'PLACE')) {
+    label = "馬番";
+  }
+
   return (
     <div className="space-y-4">
       <NumberGrid 
-        label={method === 'BOX' ? "ボックス選択馬" : "選抜馬"}
+        label={label}
         selected={selections[0] || []} 
         onToggle={(n) => toggleSelection(0, n)} 
       />

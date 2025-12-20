@@ -87,26 +87,53 @@ export function BettingForm({ initialState, onAdd, className }: BettingFormProps
     
     if (!date) return;
     
-    const bet: TicketFormState & { mode: 'REAL' | 'AIR' } = {
-      race_date: format(date, 'yyyy-MM-dd'),
-      place_code: place,
-      race_number: raceNo,
-      type: betType,
-      method: betMethod,
-      selections,
-      axis,
-      partners,
-      positions,
-      multi,
-      amount,
-      total_points: combinations,
-      total_cost: totalCost,
-      mode,
-      image_hash: initialState?.image_hash,
-      image_url: initialState?.image_url
-    };
-    
-    onAdd(bet);
+    // Special handling for WIN/PLACE with NORMAL method (Split into individual bets)
+    if ((betType === 'WIN' || betType === 'PLACE') && betMethod === 'NORMAL') {
+      const selectedHorses = selections[0] || [];
+      
+      selectedHorses.forEach(horse => {
+        const bet: TicketFormState & { mode: 'REAL' | 'AIR' } = {
+          race_date: format(date, 'yyyy-MM-dd'),
+          place_code: place,
+          race_number: raceNo,
+          type: betType,
+          method: betMethod,
+          selections: [[horse]],
+          axis: [],
+          partners: [],
+          positions: [],
+          multi: false,
+          amount,
+          total_points: 1,
+          total_cost: amount,
+          mode,
+          image_hash: initialState?.image_hash,
+          image_url: initialState?.image_url
+        };
+        onAdd(bet);
+      });
+    } else {
+      const bet: TicketFormState & { mode: 'REAL' | 'AIR' } = {
+        race_date: format(date, 'yyyy-MM-dd'),
+        place_code: place,
+        race_number: raceNo,
+        type: betType,
+        method: betMethod,
+        selections,
+        axis,
+        partners,
+        positions,
+        multi,
+        amount,
+        total_points: combinations,
+        total_cost: totalCost,
+        mode,
+        image_hash: initialState?.image_hash,
+        image_url: initialState?.image_url
+      };
+      
+      onAdd(bet);
+    }
     
     // Reset selections after add (optional, maybe keep race info)
     setSelections([[]]);
@@ -190,6 +217,11 @@ export function BettingForm({ initialState, onAdd, className }: BettingFormProps
                 setSelections([[]]);
                 setAxis([]);
                 setPartners([]);
+                
+                // Reset method to NORMAL if switching to WIN or PLACE
+                if (type.value === 'WIN' || type.value === 'PLACE') {
+                  setBetMethod('NORMAL');
+                }
               }}
             >
               {type.label}
@@ -201,12 +233,22 @@ export function BettingForm({ initialState, onAdd, className }: BettingFormProps
       {/* Row 3: Bet Method */}
       <div className="space-y-2">
         <Label>メソッド</Label>
-        <div className="flex flex-wrap gap-2">
-          {BET_METHODS.map((method) => (
+        <div className={cn(
+          "grid gap-2 w-full",
+          (betType === 'WIN' || betType === 'PLACE') ? "grid-cols-1" : "grid-cols-4"
+        )}>
+          {(betType === 'WIN' || betType === 'PLACE' 
+            ? BET_METHODS.filter(m => m.value === 'NORMAL') 
+            : BET_METHODS
+          ).map((method) => (
             <Button
               key={method.value}
               type="button"
-              variant={betMethod === method.value ? "secondary" : "ghost"}
+              variant={betMethod === method.value ? "default" : "outline"}
+              className={cn(
+                "w-full px-1 text-xs", // Reduce padding and font size to fit in one line
+                betMethod === method.value && 'bg-accent text-accent-foreground hover:bg-accent/90'
+              )}
               onClick={() => {
                 setBetMethod(method.value);
                 setSelections([[]]);
@@ -275,6 +317,8 @@ export function BettingForm({ initialState, onAdd, className }: BettingFormProps
               value={amount}
               onChange={(e) => setAmount(Number(e.target.value))}
               className="pl-8"
+              step={100}
+              min={100}
             />
           </div>
         </div>
