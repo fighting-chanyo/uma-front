@@ -71,11 +71,11 @@ export function BettingForm({ initialState, onAdd, className }: BettingFormProps
 
   // Recalculate combinations and cost
   useEffect(() => {
-    const points = calculateCombinations(betType, betMethod, selections, axis, partners, multi);
+    const points = calculateCombinations(betType, betMethod, selections, axis, partners, multi, positions);
     setCombinations(points);
     setTotalCost(points * amount);
     setShowError(false); // Hide error when inputs change
-  }, [betType, betMethod, selections, axis, partners, multi, amount]);
+  }, [betType, betMethod, selections, axis, partners, multi, amount, positions]);
 
   const isMissingInfo = !date || !place || !raceNo || !amount || combinations === 0;
 
@@ -113,13 +113,24 @@ export function BettingForm({ initialState, onAdd, className }: BettingFormProps
         onAdd(bet);
       });
     } else {
+      // For NORMAL method with multi-row types (Exacta, Quinella, etc.),
+      // we need to flatten the selections to match the expected data structure (e.g. [["13", "14"]])
+      // instead of [["13"], ["14"]].
+      let finalSelections = selections;
+      if (betMethod === 'NORMAL' && ['EXACTA', 'QUINELLA', 'QUINELLA_PLACE', 'BRACKET_QUINELLA'].includes(betType)) {
+        const flat = selections.map(row => row[0]).filter(Boolean);
+        if (flat.length > 0) {
+          finalSelections = [flat];
+        }
+      }
+
       const bet: TicketFormState & { mode: 'REAL' | 'AIR' } = {
         race_date: format(date, 'yyyy-MM-dd'),
         place_code: place,
         race_number: raceNo,
         type: betType,
         method: betMethod,
-        selections,
+        selections: finalSelections,
         axis,
         partners,
         positions,

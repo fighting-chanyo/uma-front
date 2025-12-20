@@ -37,7 +37,7 @@ const FORMATION_DEPTH: Record<string, number> = {
 
 // ラベル定義
 const ROW_LABELS: Record<string, string[]> = {
-  'EXACTA': ['1着', '2着'],
+  'EXACTA': ['1頭目', '2頭目'],
   'QUINELLA': ['1頭目', '2頭目'],
   'QUINELLA_PLACE': ['1頭目', '2頭目'],
   'BRACKET_QUINELLA': ['1頭目', '2頭目'],
@@ -65,10 +65,23 @@ export function MarkSheetGrid({
     if (!newSelections[rowIndex]) newSelections[rowIndex] = [];
     
     const row = newSelections[rowIndex];
-    if (row.includes(strNum)) {
-      newSelections[rowIndex] = row.filter(n => n !== strNum);
+    
+    // Special handling for NORMAL method with multi-row types (Exacta, Quinella, etc.)
+    // User requirement: "1セットにつき、1つまでしかチェックできない"
+    const isNormalMultiRow = method === 'NORMAL' && ['EXACTA', 'QUINELLA', 'QUINELLA_PLACE', 'BRACKET_QUINELLA'].includes(type);
+
+    if (isNormalMultiRow) {
+      if (row.includes(strNum)) {
+        newSelections[rowIndex] = [];
+      } else {
+        newSelections[rowIndex] = [strNum];
+      }
     } else {
-      newSelections[rowIndex] = [...row, strNum].sort();
+      if (row.includes(strNum)) {
+        newSelections[rowIndex] = row.filter(n => n !== strNum);
+      } else {
+        newSelections[rowIndex] = [...row, strNum].sort();
+      }
     }
     onUpdate({ selections: newSelections });
   };
@@ -76,10 +89,20 @@ export function MarkSheetGrid({
   const toggleAxis = (number: number) => {
     const strNum = toStr(number);
     let newAxis = [...axis];
-    if (newAxis.includes(strNum)) {
-      newAxis = newAxis.filter(n => n !== strNum);
+
+    // NAGASHI: Only 1 axis horse allowed
+    if (method === 'NAGASHI') {
+      if (newAxis.includes(strNum)) {
+        newAxis = [];
+      } else {
+        newAxis = [strNum];
+      }
     } else {
-      newAxis = [...newAxis, strNum].sort();
+      if (newAxis.includes(strNum)) {
+        newAxis = newAxis.filter(n => n !== strNum);
+      } else {
+        newAxis = [...newAxis, strNum].sort();
+      }
     }
     onUpdate({ axis: newAxis });
   };
@@ -135,65 +158,91 @@ export function MarkSheetGrid({
   );
 
   if (method === 'NAGASHI') {
+    const isExacta = type === 'EXACTA';
+    const isTrio = type === 'TRIO';
+    const isTrifecta = type === 'TRIFECTA';
+    
+    // Multi is needed for Exacta, Trio, Trifecta. Not for Quinella, Wide, Bracket.
+    const showMulti = isExacta || isTrio || isTrifecta;
+
+    // Label for Axis
+    let axisLabel = "軸馬";
+    if (isExacta) {
+      axisLabel = positions.includes(2) ? "2着軸" : "1着軸";
+    }
+
     return (
       <div className="space-y-6">
         {/* Axis Row */}
-        <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <Label className="text-base font-bold">軸馬選択</Label>
-            
-            <div className="flex items-center gap-4">
-              {/* Position Radio (Only if not Multi) */}
-              <div className={cn("flex items-center gap-2", multi && "opacity-50 pointer-events-none")}>
-                {[1, 2, 3].map((pos) => (
-                  <label key={pos} className="flex items-center gap-1 cursor-pointer">
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+            {/* Position Radio (Only for Exacta) */}
+            {isExacta ? (
+              <div className="flex items-center gap-3">
+                <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">軸馬選択</Label>
+                <div className="flex items-center gap-2 bg-muted/30 px-2 py-0.5 rounded border">
+                  <label className="flex items-center gap-1 cursor-pointer">
                     <input
                       type="radio"
                       name="axis-position"
-                      checked={positions.includes(pos)}
-                      onChange={() => setPosition(pos)}
-                      className="w-4 h-4 accent-primary"
+                      checked={positions.includes(1) || positions.length === 0} // Default to 1st if empty
+                      onChange={() => setPosition(1)}
+                      className="w-3 h-3 accent-primary"
                     />
-                    <span className="text-sm">{pos}着</span>
+                    <span className="text-xs">1着軸</span>
                   </label>
-                ))}
+                  <label className="flex items-center gap-1 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="axis-position"
+                      checked={positions.includes(2)}
+                      onChange={() => setPosition(2)}
+                      className="w-3 h-3 accent-primary"
+                    />
+                    <span className="text-xs">2着軸</span>
+                  </label>
+                </div>
               </div>
+            ) : (
+              <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{axisLabel}</Label>
+            )}
 
-              {/* Multi Checkbox */}
-              <label className="flex items-center gap-2 cursor-pointer border-l pl-4">
+            {/* Multi Checkbox */}
+            {showMulti && (
+              <label className="flex items-center gap-1.5 cursor-pointer bg-muted/30 px-2 py-0.5 rounded border hover:bg-muted/50 transition-colors">
                 <input
                   type="checkbox"
                   checked={multi}
                   onChange={toggleMulti}
-                  className="w-4 h-4 rounded border-gray-300 accent-primary"
+                  className="w-3 h-3 rounded border-gray-300 accent-primary"
                 />
-                <span className="text-sm font-bold">マルチ</span>
+                <span className="text-xs font-bold">マルチ</span>
               </label>
-            </div>
+            )}
           </div>
           
           <NumberGrid selected={axis} onToggle={toggleAxis} />
         </div>
 
         {/* Partners Row */}
-        <div className="space-y-3 p-4 border rounded-lg">
-          <Label className="text-base font-bold">相手選択</Label>
-          <NumberGrid selected={partners} onToggle={togglePartner} />
+        <div className="space-y-2">
+          <NumberGrid label="相手" selected={partners} onToggle={togglePartner} />
         </div>
       </div>
     );
   }
 
-  if (method === 'FORMATION') {
-    const depth = FORMATION_DEPTH[type] || 3;
-    const labels = ROW_LABELS[type] || ['1枚目', '2枚目', '3枚目'];
+  // FORMATION or NORMAL (for multi-row types)
+  if (method === 'FORMATION' || (method === 'NORMAL' && ['EXACTA', 'QUINELLA', 'QUINELLA_PLACE', 'BRACKET_QUINELLA'].includes(type))) {
+    const depth = FORMATION_DEPTH[type] || 2;
+    const labels = ROW_LABELS[type] || ['1頭目', '2頭目', '3頭目'];
 
     return (
       <div className="space-y-6">
         {Array.from({ length: depth }).map((_, idx) => (
           <div key={idx} className="space-y-1">
             <NumberGrid 
-              label={labels[idx] || `${idx + 1}枚目`} 
+              label={labels[idx] || `${idx + 1}頭目`} 
               selected={selections[idx] || []} 
               onToggle={(n) => toggleSelection(idx, n)} 
             />
@@ -203,10 +252,10 @@ export function MarkSheetGrid({
     );
   }
 
-  // NORMAL or BOX
+  // NORMAL (WIN/PLACE) or BOX
   let label = "選抜馬";
   if (method === 'BOX') {
-    label = "ボックス選択馬";
+    label = "馬番";
   } else if (method === 'NORMAL' && (type === 'WIN' || type === 'PLACE')) {
     label = "馬番";
   }

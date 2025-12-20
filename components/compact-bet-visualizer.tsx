@@ -164,8 +164,8 @@ export function CompactBetVisualizer({ content }: CompactBetVisualizerProps) {
 
   // NORMALの場合の表示を追加
   if (content.method === "NORMAL" && content.selections && content.selections[0]) {
-    const isBracket = content.type.includes("BRACKET")
-    const joiner = isBracket ? "-" : " - "
+    // 以前は枠連のみハイフンの前後のスペースがなかったが、統一する
+    const joiner = " - "
 
     return (
       <div className="flex items-center gap-1.5 py-1">
