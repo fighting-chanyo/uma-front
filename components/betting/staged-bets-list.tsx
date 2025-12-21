@@ -8,6 +8,7 @@ import { CompactBetVisualizer } from '@/components/compact-bet-visualizer';
 import { RaceNameDisplay } from './race-name-display';
 import { TicketFormState } from '@/types/betting';
 import { cn } from '@/lib/utils';
+import { PLACE_CODE_TO_NAME } from '@/lib/betting-utils';
 
 interface StagedBetsListProps {
   bets: (TicketFormState & { mode: 'REAL' | 'AIR' })[];
@@ -45,7 +46,7 @@ export function StagedBetsList({ bets, onRemove }: StagedBetsListProps) {
             <div className="flex-1 space-y-1">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <span>{bet.race_date}</span>
-                <span>{bet.place_code}</span>
+                <span>{PLACE_CODE_TO_NAME[bet.place_code] || bet.place_code}</span>
                 <span>{bet.race_number}R</span>
                 <RaceNameDisplay 
                   date={bet.race_date} 

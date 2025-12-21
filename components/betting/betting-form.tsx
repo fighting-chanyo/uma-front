@@ -15,7 +15,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MarkSheetGrid } from '@/components/betting/mark-sheet-grid';
 import { TicketFormState, BetType, BetMethod } from '@/types/betting';
-import { calculateCombinations } from '@/lib/betting-utils';
+import { calculateCombinations, PLACE_NAME_TO_CODE, PLACE_CODE_TO_NAME } from '@/lib/betting-utils';
+import { useRaceSchedule } from '@/hooks/use-race-schedule';
 
 interface BettingFormProps {
   initialState?: Partial<TicketFormState>;
@@ -41,16 +42,14 @@ const BET_METHODS: { value: BetMethod; label: string }[] = [
   { value: 'NAGASHI', label: 'ながし' },
 ];
 
-const RACE_COURSES = [
-  '札幌', '函館', '福島', '新潟', '東京', '中山', '中京', '京都', '阪神', '小倉'
-];
-
 export function BettingForm({ initialState, onAdd, className }: BettingFormProps) {
+  const { getAvailableDates, getPlacesForDate, getRacesForDateAndPlace, loading: scheduleLoading } = useRaceSchedule();
+
   const [date, setDate] = useState<Date | undefined>(
-    initialState?.race_date ? new Date(initialState.race_date) : new Date()
+    initialState?.race_date ? new Date(initialState.race_date) : undefined
   );
-  const [place, setPlace] = useState<string>(initialState?.place_code || '東京');
-  const [raceNo, setRaceNo] = useState<number>(initialState?.race_number || 11);
+  const [place, setPlace] = useState<string>(initialState?.place_code || '');
+  const [raceNo, setRaceNo] = useState<number>(initialState?.race_number || 0);
   
   const [betType, setBetType] = useState<BetType>(initialState?.type || 'WIN');
   const [betMethod, setBetMethod] = useState<BetMethod>(initialState?.method || 'NORMAL');
@@ -62,12 +61,19 @@ export function BettingForm({ initialState, onAdd, className }: BettingFormProps
   const [multi, setMulti] = useState<boolean>(initialState?.multi || false);
   
   const [mode, setMode] = useState<'REAL' | 'AIR'>('REAL');
-  const [amount, setAmount] = useState<number>(initialState?.amount || 100);
+  const [amount, setAmount] = useState<number>(
+    initialState ? (initialState.amount || 0) : 100
+  );
   
   const [combinations, setCombinations] = useState(0);
   const [totalCost, setTotalCost] = useState(0);
 
-  const [showError, setShowError] = useState(false);
+  const [showError, setShowError] = useState(() => {
+    if (initialState) {
+      return !initialState.race_date || !initialState.place_code || !initialState.race_number || !initialState.amount;
+    }
+    return false;
+  });
 
   // Recalculate combinations and cost
   useEffect(() => {
@@ -154,55 +160,72 @@ export function BettingForm({ initialState, onAdd, className }: BettingFormProps
     setShowError(false);
   };
 
+  const availableDates = getAvailableDates();
+  const availablePlaces = date ? getPlacesForDate(format(date, 'yyyy-MM-dd')) : [];
+  const availableRaces = (date && place) ? getRacesForDateAndPlace(format(date, 'yyyy-MM-dd'), place) : [];
+
   return (
     <div className={cn("space-y-6 p-4 bg-card/50 rounded-lg border border-border", className)}>
       {/* Row 1: Date, Place, RaceNo */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="flex flex-col space-y-2">
-          <Label>開催日</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={"outline"}
-                className={cn(
-                  "w-full justify-start text-left font-normal",
-                  !date && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {date ? format(date, "yyyy-MM-dd") : <span>Pick a date</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                selected={date}
-                onSelect={setDate}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        <div className="flex flex-col space-y-2">
-          <Label>会場</Label>
-          <select 
-            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            value={place}
-            onChange={(e) => setPlace(e.target.value)}
+          <Label className={cn((!date && showError) && "text-destructive")}>開催日</Label>
+          <select
+            className={cn(
+              "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+              (!date && showError) && "border-destructive"
+            )}
+            value={date ? format(date, "yyyy-MM-dd") : ""}
+            onChange={(e) => {
+              const newDate = e.target.value ? new Date(e.target.value) : undefined;
+              setDate(newDate);
+              setPlace('');
+              setRaceNo(0);
+            }}
           >
-            {RACE_COURSES.map(c => <option key={c} value={c}>{c}</option>)}
+            <option value="" disabled>選択してください</option>
+            {availableDates.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
           </select>
         </div>
 
         <div className="flex flex-col space-y-2">
-          <Label>レース番号</Label>
+          <Label className={cn((!place && showError) && "text-destructive")}>会場</Label>
           <select 
-            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            value={raceNo}
-            onChange={(e) => setRaceNo(Number(e.target.value))}
+            className={cn(
+              "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+              (!place && showError) && "border-destructive"
+            )}
+            value={place}
+            onChange={(e) => {
+              setPlace(e.target.value);
+              setRaceNo(0);
+            }}
+            disabled={!date}
           >
-            {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
+            <option value="" disabled>選択してください</option>
+            {availablePlaces.map(code => (
+              <option key={code} value={code}>{PLACE_CODE_TO_NAME[code] || code}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex flex-col space-y-2">
+          <Label className={cn((!raceNo && showError) && "text-destructive")}>レース番号</Label>
+          <select 
+            className={cn(
+              "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+              (!raceNo && showError) && "border-destructive"
+            )}
+            value={raceNo || ''}
+            onChange={(e) => setRaceNo(Number(e.target.value))}
+            disabled={!place}
+          >
+            <option value="" disabled>選択してください</option>
+            {availableRaces.map(n => (
               <option key={n} value={n}>{n}R</option>
             ))}
           </select>
@@ -320,14 +343,14 @@ export function BettingForm({ initialState, onAdd, className }: BettingFormProps
         </div>
 
         <div className="space-y-2">
-          <Label>1点あたり</Label>
+          <Label className={cn((!amount && showError) && "text-destructive")}>1点あたり</Label>
           <div className="relative">
             <span className="absolute left-3 top-2.5 text-muted-foreground">¥</span>
             <Input
               type="number"
-              value={amount}
+              value={amount || ''}
               onChange={(e) => setAmount(Number(e.target.value))}
-              className="pl-8"
+              className={cn("pl-8", (!amount && showError) && "border-destructive")}
               step={100}
               min={100}
             />
@@ -344,7 +367,7 @@ export function BettingForm({ initialState, onAdd, className }: BettingFormProps
         
         <Button 
           onClick={handleAdd} 
-          className="w-full md:w-auto min-w-[200px] bg-accent text-accent-foreground hover:bg-accent/90"
+          className="w-full md:w-auto min-w-[200px] bg-accent text-accent-foreground hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus className="w-4 h-4 mr-2" />
           {initialState ? '買い目更新' : '買い目追加'}

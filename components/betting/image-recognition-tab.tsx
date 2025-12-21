@@ -1,164 +1,257 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { Upload, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Upload, Loader2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { BettingForm } from './betting-form';
 import { useTicketAnalysis } from '@/hooks/use-ticket-analysis';
 import { TicketFormState } from '@/types/betting';
+import { ImageAnalysisRequest, AnalyzedTicketData } from '@/types/analysis';
 import { cn } from '@/lib/utils';
+import { calculateCombinations } from '@/lib/betting-utils';
+import { AnalysisQueueList } from './analysis-queue-list';
+import { AnalysisCorrectionView } from './analysis-correction-view';
 
 interface ImageRecognitionTabProps {
   onAddBet: (bet: TicketFormState & { mode: 'REAL' | 'AIR' }) => void;
 }
 
 export function ImageRecognitionTab({ onAddBet }: ImageRecognitionTabProps) {
-  const { analyzeImage, isAnalyzing, error } = useTicketAnalysis();
-  const [editingBet, setEditingBet] = useState<Partial<TicketFormState> | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const { analyzeImage } = useTicketAnalysis();
+  const [queue, setQueue] = useState<ImageAnalysisRequest[]>([]);
+  const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const activeRequest = queue.find(r => r.id === activeRequestId);
+
+  const convertToTicketFormState = (result: AnalyzedTicketData, previewUrl: string): (TicketFormState & { mode: 'REAL' | 'AIR' }) | null => {
+    if (!result.date || !result.place || !result.raceNumber || !result.betType || !result.method || !result.amount) {
+      return null;
+    }
+
+    const combinations = calculateCombinations(
+      result.betType,
+      result.method,
+      result.selections || [],
+      result.axis || [],
+      result.partners || [],
+      result.multi || false,
+      result.positions || []
+    );
+
+    return {
+      race_date: result.date,
+      place_code: result.place,
+      race_number: result.raceNumber,
+      type: result.betType,
+      method: result.method,
+      selections: result.selections || [],
+      axis: result.axis || [],
+      partners: result.partners || [],
+      positions: result.positions || [],
+      multi: result.multi || false,
+      amount: result.amount,
+      total_points: combinations,
+      total_cost: combinations * result.amount,
+      mode: 'REAL', // Default to REAL for analyzed tickets
+      image_url: previewUrl
+    };
+  };
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-    // Create preview
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
-    setEditingBet(null);
+    const newRequests: ImageAnalysisRequest[] = Array.from(files).map(file => ({
+      id: crypto.randomUUID(),
+      file,
+      previewUrl: URL.createObjectURL(file),
+      status: 'pending'
+    }));
 
-    const result = await analyzeImage(file);
+    setQueue(prev => [...prev, ...newRequests]);
+
+    // Trigger analysis for each new request
+    // We can do this in parallel or sequentially. 
+    // For now, let's just fire them all.
+    newRequests.forEach(req => processRequest(req));
     
-    if (result) {
-      // Check if result is complete enough to auto-add
-      // For now, let's assume we always want to verify or at least show the form if anything is ambiguous.
-      // But the requirement says "well analyzed ones go to list".
-      // Let's check for critical fields.
-      const isComplete = 
-        result.race_date && 
-        result.place_code && 
-        result.race_number && 
-        result.type && 
-        result.method && 
-        (result.selections?.length || result.axis?.length) &&
-        result.amount;
-
-      if (isComplete) {
-        // Auto add
-        onAddBet({
-          ...result as TicketFormState,
-          mode: 'REAL', // Default to REAL for OCR? Or maybe AIR? Let's default to REAL as it's a physical ticket usually.
-          image_url: url
-        });
-        // Clear preview after auto-add? Or keep it?
-        // Maybe show a success message.
-        setEditingBet(null);
-        setPreviewUrl(null);
-      } else {
-        // Show form for correction
-        setEditingBet({ ...result, image_url: url });
-      }
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
-  const handleCorrectionAdd = (bet: TicketFormState & { mode: 'REAL' | 'AIR' }) => {
-    onAddBet(bet);
-    setEditingBet(null);
-    setPreviewUrl(null);
+  const processRequest = async (request: ImageAnalysisRequest) => {
+    updateRequestStatus(request.id, 'analyzing');
+
+    try {
+      const result = await analyzeImage(request.file);
+      
+      if (result) {
+        const isComplete = 
+          result.date && 
+          result.place && 
+          result.raceNumber && 
+          result.betType && 
+          result.method && 
+          (result.selections?.length || result.axis?.length) &&
+          result.amount;
+
+        if (isComplete) {
+          const bet = convertToTicketFormState(result, request.previewUrl);
+          if (bet) {
+            onAddBet(bet);
+            updateRequest(request.id, {
+              status: 'complete_auto',
+              result
+            });
+          } else {
+             // Should not happen if isComplete check is correct, but fallback
+             updateRequest(request.id, {
+              status: 'correction_needed',
+              result
+            });
+          }
+        } else {
+          updateRequest(request.id, {
+            status: 'correction_needed',
+            result
+          });
+        }
+      } else {
+        updateRequestStatus(request.id, 'error', '解析できませんでした');
+      }
+    } catch (err) {
+      updateRequestStatus(request.id, 'error', err instanceof Error ? err.message : 'エラーが発生しました');
+    }
   };
 
+  const updateRequestStatus = (id: string, status: ImageAnalysisRequest['status'], error?: string) => {
+    setQueue(prev => prev.map(item => 
+      item.id === id ? { ...item, status, error } : item
+    ));
+  };
+
+  const updateRequest = (id: string, updates: Partial<ImageAnalysisRequest>) => {
+    setQueue(prev => prev.map(item => 
+      item.id === id ? { ...item, ...updates } : item
+    ));
+  };
+
+  const handleDelete = (id: string) => {
+    setQueue(prev => {
+      const item = prev.find(i => i.id === id);
+      if (item) {
+        URL.revokeObjectURL(item.previewUrl);
+      }
+      return prev.filter(i => i.id !== id);
+    });
+    if (activeRequestId === id) {
+      setActiveRequestId(null);
+    }
+  };
+
+  const handleEdit = (id: string) => {
+    setActiveRequestId(id);
+  };
+
+  const handleConfirmCorrection = (bet: TicketFormState & { mode: 'REAL' | 'AIR' }) => {
+    onAddBet(bet);
+    // Update status to complete_manual instead of deleting
+    if (activeRequestId) {
+      updateRequestStatus(activeRequestId, 'complete_manual');
+      setActiveRequestId(null);
+    }
+  };
+
+  if (activeRequest) {
+    return (
+      <AnalysisCorrectionView 
+        request={activeRequest} 
+        onConfirm={handleConfirmCorrection}
+        onCancel={() => setActiveRequestId(null)}
+      />
+    );
+  }
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Left: Upload Area */}
-      <div className="space-y-4">
-        <div className="bg-card/30 p-4 rounded-lg border border-border/50 h-full flex flex-col">
-          <h2 className="text-lg font-semibold mb-4 text-accent">BET SLIP UPLOAD</h2>
+    <div className="flex flex-col gap-6 h-[600px] w-full">
+      {/* Top: Upload Area */}
+      <div className="space-y-4 flex flex-col shrink-0 w-full">
+        <div className="bg-card/30 p-4 rounded-lg border border-border/50 flex flex-col w-full">
+          <h2 className="text-lg font-semibold mb-4 text-accent">馬券アップロード</h2>
           
           <div 
-            className={cn(
-              "flex-1 border-2 border-dashed border-muted-foreground/25 rounded-lg flex flex-col items-center justify-center p-8 transition-colors min-h-[300px]",
-              isAnalyzing ? "bg-accent/5" : "hover:bg-accent/5 hover:border-primary/50"
-            )}
+            className="border-2 border-dashed border-muted-foreground/25 rounded-lg flex flex-col items-center justify-center p-4 transition-colors hover:bg-accent/5 hover:border-primary/50 min-h-[100px]"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (e.dataTransfer.files) {
+                // Reuse handleFileSelect logic logic roughly
+                const files = e.dataTransfer.files;
+                const newRequests: ImageAnalysisRequest[] = Array.from(files).map(file => ({
+                  id: crypto.randomUUID(),
+                  file,
+                  previewUrl: URL.createObjectURL(file),
+                  status: 'pending'
+                }));
+                setQueue(prev => [...prev, ...newRequests]);
+                newRequests.forEach(req => processRequest(req));
+              }
+            }}
           >
-            {previewUrl ? (
-              <div className="relative w-full h-full flex items-center justify-center">
-                <img 
-                  src={previewUrl} 
-                  alt="Ticket Preview" 
-                  className="max-w-full max-h-[400px] object-contain rounded-md shadow-lg" 
-                />
-                {isAnalyzing && (
-                  <div className="absolute inset-0 bg-background/50 flex items-center justify-center backdrop-blur-sm">
-                    <Loader2 className="w-10 h-10 animate-spin text-primary" />
-                  </div>
-                )}
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <Upload className="w-6 h-6 text-primary" />
               </div>
-            ) : (
-              <div className="text-center space-y-4">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                  <Upload className="w-8 h-8 text-primary" />
-                </div>
+              <div className="text-left space-y-1">
                 <div>
-                  <p className="text-lg font-medium">Upload Image</p>
-                  <p className="text-sm text-muted-foreground">Drag & drop or click to browse</p>
+                  <p className="text-base font-medium">画像をアップロード</p>
+                  <p className="text-xs text-muted-foreground">ドラッグ＆ドロップ または クリック</p>
                 </div>
-                <Button 
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isAnalyzing}
-                >
-                  Select File
-                </Button>
               </div>
-            )}
+              <Button 
+                onClick={() => fileInputRef.current?.click()}
+                variant="outline"
+                size="sm"
+                className="ml-4"
+              >
+                ファイルを選択
+              </Button>
+            </div>
             <input 
               type="file" 
               ref={fileInputRef} 
               className="hidden" 
               accept="image/*"
+              multiple
               onChange={handleFileSelect}
             />
           </div>
-
-          {error && (
-            <div className="mt-4 p-3 bg-destructive/10 text-destructive rounded-md flex items-center text-sm">
-              <AlertTriangle className="w-4 h-4 mr-2" />
-              {error}
-            </div>
-          )}
+          
+          <p className="text-xs text-muted-foreground mt-4 leading-relaxed">
+            実際の馬券や、ネット購入した馬券のスクリーンショットなどを解析し、登録します。
+            解析できない情報があった場合、手入力で補足していただきます。<br />
+            一度に複数枚、アップロードできます。
+          </p>
         </div>
       </div>
 
-      {/* Right: Analysis Result / Correction Form */}
-      <div className="space-y-4">
-        {editingBet ? (
-          <div className="bg-card/30 p-4 rounded-lg border border-destructive/50 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-destructive/50" />
-            <div className="flex items-center gap-2 mb-4 text-destructive">
-              <AlertTriangle className="w-5 h-5" />
-              <h2 className="text-lg font-semibold">一部の情報を解析できませんでした。</h2>
-            </div>
-            <p className="text-sm text-muted-foreground mb-4">
-              解析できなかった項目を修正してください。
-            </p>
-            
-            <BettingForm 
-              initialState={editingBet} 
-              onAdd={handleCorrectionAdd} 
-              className="border-none bg-transparent p-0"
+      {/* Bottom: Queue List */}
+      <div className="space-y-4 flex-1 min-h-0 overflow-y-auto">
+        <div className="bg-card/30 p-4 rounded-lg border border-border/50 min-h-full">
+          {queue.length > 0 ? (
+            <AnalysisQueueList 
+              items={queue} 
+              onEdit={handleEdit} 
+              onDelete={handleDelete} 
             />
-          </div>
-        ) : (
-          <div className="bg-card/30 p-4 rounded-lg border border-border/50 h-full flex items-center justify-center text-muted-foreground">
-            {isAnalyzing ? (
-              <div className="text-center">
-                <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
-                <p>Analyzing ticket...</p>
-              </div>
-            ) : (
-              <p>Upload a ticket to see analysis results here.</p>
-            )}
-          </div>
-        )}
+          ) : (
+            <div className="h-full flex items-center justify-center text-muted-foreground min-h-[100px]">
+              <p>馬券画像をアップロードして解析を開始</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -84,7 +84,7 @@ export function BettingInterface({ defaultTab = 'manual' }: { defaultTab?: 'manu
   };
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto pb-20">
+    <div className="space-y-8 w-full pb-20">
       <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-8">
           <TabsTrigger value="manual">手動入力</TabsTrigger>

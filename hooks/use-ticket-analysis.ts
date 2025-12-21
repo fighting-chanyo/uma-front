@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { TicketFormState } from '@/types/betting';
+import { AnalyzedTicketData } from '@/types/analysis';
+
+let mockCounter = 0;
 
 export function useTicketAnalysis() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -28,7 +31,7 @@ export function useTicketAnalysis() {
     return !!data;
   };
 
-  const analyzeImage = async (file: File): Promise<Partial<TicketFormState> | null> => {
+  const analyzeImage = async (file: File): Promise<AnalyzedTicketData | null> => {
     setIsAnalyzing(true);
     setError(null);
 
@@ -37,50 +40,94 @@ export function useTicketAnalysis() {
       const hash = await calculateImageHash(file);
 
       // 2. Duplicate Check
-      const isDuplicate = await checkDuplicate(hash);
-      if (isDuplicate) {
-        throw new Error('この画像は既に登録されています。');
-      }
+      // const isDuplicate = await checkDuplicate(hash);
+      // if (isDuplicate) {
+      //   throw new Error('この画像は既に登録されています。');
+      // }
 
       // 3. Send to API
       const formData = new FormData();
       formData.append('file', file);
 
+      // Mocking the API response for development
+      // In production, uncomment the fetch call
+      /*
       const response = await fetch('/api/analyze/image', {
         method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.details || '画像の解析に失敗しました。');
+        throw new Error('画像の解析に失敗しました。');
       }
 
-      const result = await response.json();
+      const data = await response.json();
+      return data as AnalyzedTicketData;
+      */
+     
+      // Mock delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Mock response rotation
+      const mocks: AnalyzedTicketData[] = [
+        // Ticket A: 1 item, OK
+        {
+          isComplete: true,
+          missingFields: [],
+          date: '2025-12-21',
+          place: '06', // Nakayama
+          raceNumber: 11,
+          betType: 'WIN',
+          method: 'NORMAL',
+          selections: [['01']], // 1 point
+          axis: [],
+          partners: [],
+          positions: [],
+          amount: 100,
+          multi: false
+        },
+        // Ticket B: 2 items, Date missing
+        {
+          isComplete: false,
+          missingFields: ['date'],
+          date: null, // Missing
+          place: '06', // Nakayama
+          raceNumber: 12,
+          betType: 'WIN',
+          method: 'NORMAL',
+          selections: [['01', '02']], // 2 points
+          axis: [],
+          partners: [],
+          positions: [],
+          amount: 500,
+          multi: false
+        },
+        // Ticket C: 1 item, OK
+        {
+          isComplete: true,
+          missingFields: [],
+          date: '2025-12-22',
+          place: '09', // Hanshin
+          raceNumber: 10,
+          betType: 'QUINELLA',
+          method: 'BOX',
+          selections: [['01', '02']], // 1 point (1-2)
+          axis: [],
+          partners: [],
+          positions: [],
+          amount: 200,
+          multi: false
+        }
+      ];
+
+      const result = mocks[mockCounter % mocks.length];
+      mockCounter++;
       
-      // Convert numbers to strings for compatibility
-      const convertToStrings = (data: any) => {
-        if (data.selections) {
-          data.selections = data.selections.map((row: any[]) => 
-            row.map((n: any) => String(n).padStart(2, '0'))
-          );
-        }
-        if (data.axis) {
-          data.axis = data.axis.map((n: any) => String(n).padStart(2, '0'));
-        }
-        if (data.partners) {
-          data.partners = data.partners.map((n: any) => String(n).padStart(2, '0'));
-        }
-        return data;
-      };
+      return result;
 
-      const convertedResult = convertToStrings(result);
-
-      // Add hash to result
-      return { ...convertedResult, image_hash: hash };
-
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : '予期せぬエラーが発生しました。');
       return null;
     } finally {
       setIsAnalyzing(false);
@@ -89,3 +136,4 @@ export function useTicketAnalysis() {
 
   return { analyzeImage, isAnalyzing, error };
 }
+
