@@ -124,7 +124,6 @@ export function calculateCombinations(
     const count = normSelections[0]?.length || 0;
     switch (type) {
       case 'BRACKET_QUINELLA': 
-        return (count * (count + 1)) / 2;
       case 'QUINELLA': 
       case 'QUINELLA_PLACE': 
         return combinations(count, 2);
