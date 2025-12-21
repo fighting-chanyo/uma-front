@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { MarkSheetGrid } from './mark-sheet-grid';
+import { MarkSheetGrid } from '@/components/betting/mark-sheet-grid';
 import { TicketFormState, BetType, BetMethod } from '@/types/betting';
 import { calculateCombinations } from '@/lib/betting-utils';
 
@@ -117,7 +117,7 @@ export function BettingForm({ initialState, onAdd, className }: BettingFormProps
       // we need to flatten the selections to match the expected data structure (e.g. [["13", "14"]])
       // instead of [["13"], ["14"]].
       let finalSelections = selections;
-      if (betMethod === 'NORMAL' && ['EXACTA', 'QUINELLA', 'QUINELLA_PLACE', 'BRACKET_QUINELLA'].includes(betType)) {
+      if (betMethod === 'NORMAL' && ['EXACTA', 'QUINELLA', 'QUINELLA_PLACE', 'BRACKET_QUINELLA', 'TRIO', 'TRIFECTA'].includes(betType)) {
         const flat = selections.map(row => row[0]).filter(Boolean);
         if (flat.length > 0) {
           finalSelections = [flat];

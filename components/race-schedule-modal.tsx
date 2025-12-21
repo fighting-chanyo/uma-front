@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { RaceData } from "@/app/actions/race"
 import { cn } from "@/lib/utils"
@@ -16,6 +16,15 @@ interface RaceScheduleModalProps {
 }
 
 export function RaceScheduleModal({ isOpen, onClose, races, currentDate }: RaceScheduleModalProps) {
+  const [now, setNow] = useState(getNow())
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(getNow())
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [])
+
   // Group races by venue (place_code)
   const scheduleData = useMemo(() => {
     const venues = Array.from(new Set(races.map(r => r.place_code))).sort()
@@ -37,7 +46,6 @@ export function RaceScheduleModal({ isOpen, onClose, races, currentDate }: RaceS
 
   // Find the next race to highlight
   const nextRaceId = useMemo(() => {
-    const now = getNow()
     const upcomingRaces = races.filter(r => {
       if (!r.post_time) return false
       return new Date(r.post_time) > now
@@ -53,12 +61,11 @@ export function RaceScheduleModal({ isOpen, onClose, races, currentDate }: RaceS
     })
     
     return upcomingRaces[0].id
-  }, [races])
+  }, [races, now])
 
   const getRaceStatus = (race: RaceData) => {
     if (!race.post_time) return "unknown"
     const raceTime = new Date(race.post_time)
-    const now = getNow()
     
     if (race.id === nextRaceId) return "next"
     if (raceTime < now) return "finished"
@@ -70,7 +77,7 @@ export function RaceScheduleModal({ isOpen, onClose, races, currentDate }: RaceS
     return format(new Date(dateStr), "HH:mm")
   }
 
-  const displayDate = races.length > 0 ? races[0].date : format(getNow(), "yyyy-MM-dd")
+  const displayDate = races.length > 0 ? races[0].date : format(now, "yyyy-MM-dd")
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
