@@ -13,6 +13,7 @@ import { PLACE_CODE_TO_NAME } from '@/lib/betting-utils';
 interface StagedBetsListProps {
   bets: (TicketFormState & { mode: 'REAL' | 'AIR' })[];
   onRemove: (index: number) => void;
+  onEdit?: (index: number) => void;
 }
 
 const BET_TYPE_MAP: Record<string, string> = {
@@ -26,7 +27,7 @@ const BET_TYPE_MAP: Record<string, string> = {
   'BRACKET_QUINELLA': '枠連',
 };
 
-export function StagedBetsList({ bets, onRemove }: StagedBetsListProps) {
+export function StagedBetsList({ bets, onRemove, onEdit }: StagedBetsListProps) {
   if (bets.length === 0) {
     return null;
   }
@@ -79,14 +80,25 @@ export function StagedBetsList({ bets, onRemove }: StagedBetsListProps) {
                 <div className="text-xs text-muted-foreground">{bet.amount}円 × {bet.total_points}点</div>
                 <div className="font-bold text-primary">¥{bet.total_cost.toLocaleString()}</div>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-muted-foreground hover:text-destructive"
-                onClick={() => onRemove(index)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-1">
+                {onEdit && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onEdit(index)}
+                  >
+                    編集
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground hover:text-destructive"
+                  onClick={() => onRemove(index)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         ))}

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon, AlertCircle, Plus } from 'lucide-react';
+import { Calendar as CalendarIcon, AlertCircle, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -22,6 +22,8 @@ interface BettingFormProps {
   initialState?: Partial<TicketFormState>;
   onAdd: (bet: TicketFormState & { mode: 'REAL' | 'AIR' }) => void;
   className?: string;
+  submitLabel?: string;
+  onDelete?: () => void;
 }
 
 const BET_TYPES: { value: BetType; label: string }[] = [
@@ -42,7 +44,7 @@ const BET_METHODS: { value: BetMethod; label: string }[] = [
   { value: 'NAGASHI', label: 'ながし' },
 ];
 
-export function BettingForm({ initialState, onAdd, className }: BettingFormProps) {
+export function BettingForm({ initialState, onAdd, className, submitLabel, onDelete }: BettingFormProps) {
   const { getAvailableDates, getPlacesForDate, getRacesForDateAndPlace, loading: scheduleLoading } = useRaceSchedule();
 
   const [date, setDate] = useState<Date | undefined>(
@@ -54,7 +56,26 @@ export function BettingForm({ initialState, onAdd, className }: BettingFormProps
   const [betType, setBetType] = useState<BetType>(initialState?.type || 'WIN');
   const [betMethod, setBetMethod] = useState<BetMethod>(initialState?.method || 'NORMAL');
   
-  const [selections, setSelections] = useState<string[][]>(initialState?.selections || [[]]);
+  const [selections, setSelections] = useState<string[][]>(() => {
+    if (!initialState?.selections) return [[]];
+    
+    // Unflatten logic for NORMAL bets
+    // When saving NORMAL bets for multi-row types, we flatten them to a single array.
+    // We need to reverse this when loading to display correctly in the grid.
+    const type = initialState.type || 'WIN';
+    const method = initialState.method || 'NORMAL';
+    
+    if (method === 'NORMAL' && ['EXACTA', 'QUINELLA', 'QUINELLA_PLACE', 'BRACKET_QUINELLA', 'TRIO', 'TRIFECTA'].includes(type)) {
+      const firstRow = initialState.selections[0] || [];
+      const otherRowsEmpty = initialState.selections.slice(1).every(r => !r || r.length === 0);
+      
+      if (firstRow.length > 1 && otherRowsEmpty) {
+        return firstRow.map(item => [item]);
+      }
+    }
+    
+    return initialState.selections;
+  });
   const [axis, setAxis] = useState<string[]>(initialState?.axis || []);
   const [partners, setPartners] = useState<string[]>(initialState?.partners || []);
   const [positions, setPositions] = useState<number[]>(initialState?.positions || []);
@@ -365,13 +386,25 @@ export function BettingForm({ initialState, onAdd, className }: BettingFormProps
           <div className="text-lg">合計金額: <span className="text-primary font-bold">¥{totalCost.toLocaleString()}</span></div>
         </div>
         
-        <Button 
-          onClick={handleAdd} 
-          className="w-full md:w-auto min-w-[200px] bg-accent text-accent-foreground hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          {initialState ? '買い目更新' : '買い目追加'}
-        </Button>
+        <div className="flex gap-2 w-full md:w-auto">
+          {onDelete && (
+            <Button
+              variant="destructive"
+              onClick={onDelete}
+              className="w-full md:w-auto"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              削除
+            </Button>
+          )}
+          <Button 
+            onClick={handleAdd} 
+            className="w-full md:w-auto min-w-[200px] bg-accent text-accent-foreground hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            {submitLabel || (initialState ? '買い目更新' : '買い目追加')}
+          </Button>
+        </div>
       </div>
       
       {showError && isMissingInfo && (

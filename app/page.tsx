@@ -16,6 +16,10 @@ import { getDailyRaces, RaceData } from "@/app/actions/race"
 import { format } from "date-fns"
 import { getNow } from "@/lib/time-utils"
 import { PLACE_CODE_TO_NAME } from "@/lib/betting-utils"
+import { useTicketAnalysisQueue, AnalysisQueueItemWithUrl } from "@/hooks/use-ticket-analysis-queue"
+import { AnalysisQueueList } from "@/components/betting/analysis-queue-list"
+import { deleteAnalysisQueue } from "@/app/actions/ticket-analysis"
+import { BettingWizard } from "@/components/betting/betting-wizard"
 
 // FilterStateのdateRangeの型定義を修正
 export interface UpdatedFilterState extends Omit<FilterState, 'dateRange'> {
@@ -92,6 +96,9 @@ function groupTicketsByRace(myTickets: Ticket[], friendTickets: Ticket[]): Race[
 export default function DashboardPage() {
   const { toast } = useToast()
   const isMobile = useIsMobile()
+  const { queueItems } = useTicketAnalysisQueue()
+  const [editingQueueItem, setEditingQueueItem] = useState<AnalysisQueueItemWithUrl | null>(null)
+  const [isBettingWizardOpen, setIsBettingWizardOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<"my" | "friend" | "analysis">("my")
   const [isFriendModalOpen, setIsFriendModalOpen] = useState(false)
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false)
@@ -757,8 +764,24 @@ export default function DashboardPage() {
 
           <main className="pt-2 pb-6 px-3">
             {activeTab === "my" && (
-              <RaceList 
-                races={myRaces} 
+              <>
+                <AnalysisQueueList 
+                  items={queueItems} 
+                  onEdit={(item) => {
+                    setEditingQueueItem(item)
+                    setIsBettingWizardOpen(true)
+                  }} 
+                  onDelete={async (id) => {
+                    try {
+                      await deleteAnalysisQueue(id)
+                      toast({ title: "削除しました" })
+                    } catch (error) {
+                      toast({ title: "削除に失敗しました", variant: "destructive" })
+                    }
+                  }} 
+                />
+                <RaceList 
+                  races={myRaces} 
                 title="MY RACES" 
                 variant="my" 
                 onSyncComplete={() => {
@@ -770,6 +793,7 @@ export default function DashboardPage() {
                 onLoadMore={loadMoreMyTickets}
                 summary={summary}
               />
+              </>
             )}
             {activeTab === "friend" && (
               <RaceList 
@@ -791,6 +815,21 @@ export default function DashboardPage() {
         </>
       ) : (
         <main className="pt-4 pb-6 px-6 max-w-[1800px] mx-auto">
+          <AnalysisQueueList 
+            items={queueItems} 
+            onEdit={(item) => {
+              setEditingQueueItem(item)
+              setIsBettingWizardOpen(true)
+            }} 
+            onDelete={async (id) => {
+              try {
+                await deleteAnalysisQueue(id)
+                toast({ title: "削除しました" })
+              } catch (error) {
+                toast({ title: "削除に失敗しました", variant: "destructive" })
+              }
+            }} 
+          />
           {/* Race Lists - Side by Side */}
           <div className="grid grid-cols-2 gap-4">
             <RaceList 
@@ -823,6 +862,16 @@ export default function DashboardPage() {
         isOpen={isFriendModalOpen} 
         onClose={() => setIsFriendModalOpen(false)} 
         onUpdate={refreshFriendRequests}
+      />
+
+      <BettingWizard 
+        open={isBettingWizardOpen} 
+        onOpenChange={(open) => {
+          setIsBettingWizardOpen(open)
+          if (!open) setEditingQueueItem(null)
+        }}
+        defaultMode={editingQueueItem ? 'manual' : 'manual'}
+        editingQueueItem={editingQueueItem}
       />
     </div>
   )

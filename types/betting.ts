@@ -15,6 +15,7 @@ export interface TicketContent {
 }
 
 export interface TicketFormState extends TicketContent {
+  id?: string;          // 編集用ID
   race_date: string;    // YYYY-MM-DD
   place_code: string;   // 01-10
   race_number: number;  // 1-12

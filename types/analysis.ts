@@ -32,3 +32,14 @@ export interface ImageAnalysisRequest {
   result?: AnalyzedTicketData;
   error?: string;
 }
+
+export interface AnalysisQueueItem {
+  id: string;
+  user_id: string;
+  image_path: string;
+  status: 'pending' | 'processing' | 'completed' | 'error';
+  result_json: { results: AnalyzedTicketData[] } | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}

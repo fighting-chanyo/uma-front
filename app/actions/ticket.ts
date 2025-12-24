@@ -33,10 +33,11 @@ export async function saveBets(bets: (TicketFormState & { mode: 'REAL' | 'AIR' }
         throw new Error(`Race not found for ${bet.race_date} ${bet.place_code} ${bet.race_number}R`)
       }
 
-      // 2. Insert ticket
-      const { data: ticket, error: ticketError } = await supabase
-        .from('tickets')
-        .insert({
+      // 2. Insert or Update ticket
+      let ticketData;
+      let ticketError;
+
+      const payload = {
           user_id: user.id,
           race_id: race.id,
           content: {
@@ -55,15 +56,35 @@ export async function saveBets(bets: (TicketFormState & { mode: 'REAL' | 'AIR' }
           source: bet.image_hash ? 'IMAGE_OCR' : 'MANUAL',
           mode: bet.mode,
           image_hash: bet.image_hash
-        })
-        .select()
-        .single()
+      };
+
+      if (bet.id) {
+        // Update
+        const { data, error } = await supabase
+          .from('tickets')
+          .update(payload)
+          .eq('id', bet.id)
+          .eq('user_id', user.id) // Security check
+          .select()
+          .single()
+        ticketData = data;
+        ticketError = error;
+      } else {
+        // Insert
+        const { data, error } = await supabase
+          .from('tickets')
+          .insert(payload)
+          .select()
+          .single()
+        ticketData = data;
+        ticketError = error;
+      }
 
       if (ticketError) {
         throw ticketError
       }
 
-      results.push(ticket)
+      results.push(ticketData)
     } catch (e: any) {
       console.error('Error saving bet:', e)
       errors.push({ bet, error: e.message })
@@ -75,4 +96,25 @@ export async function saveBets(bets: (TicketFormState & { mode: 'REAL' | 'AIR' }
   }
 
   return { success: true, results }
+}
+
+export async function deleteTicket(ticketId: string) {
+  const supabase = await createClient()
+  
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  if (userError || !user) {
+    throw new Error('User not authenticated')
+  }
+
+  const { error } = await supabase
+    .from('tickets')
+    .delete()
+    .eq('id', ticketId)
+    .eq('user_id', user.id) // Security check
+
+  if (error) {
+    throw error
+  }
+
+  return { success: true }
 }

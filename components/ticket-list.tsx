@@ -8,9 +8,10 @@ interface TicketListProps {
   tickets: Ticket[]
   title: string
   isOwn?: boolean
+  onEdit?: (ticket: Ticket) => void
 }
 
-export function TicketList({ tickets, title, isOwn }: TicketListProps) {
+export function TicketList({ tickets, title, isOwn, onEdit }: TicketListProps) {
   const winCount = tickets.filter((t) => t.status === "WIN").length
   const totalPayout = tickets.reduce((sum, t) => sum + (t.payout || 0), 0)
   const totalBet = tickets.reduce((sum, t) => sum + t.total_cost, 0)
@@ -69,7 +70,14 @@ export function TicketList({ tickets, title, isOwn }: TicketListProps) {
 
         {/* Accordion Items */}
         {tickets.length > 0 ? (
-          tickets.map((ticket, index) => <TicketAccordionItem key={ticket.id} ticket={ticket} index={index} />)
+          tickets.map((ticket, index) => (
+            <TicketAccordionItem 
+              key={ticket.id} 
+              ticket={ticket} 
+              index={index} 
+              onEdit={isOwn ? onEdit : undefined}
+            />
+          ))
         ) : (
           <div className="p-8 text-center text-muted-foreground text-sm">NO DATA FOUND</div>
         )}

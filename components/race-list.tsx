@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils"
 import { RaceAccordionItem } from "./race-accordion-item"
 import { Button } from "@/components/ui/button"
 import { RefreshCw, ScanLine, PenLine, Loader2 } from "lucide-react"
-import type { Race } from "@/types/ticket"
+import type { Race, Ticket } from "@/types/ticket"
 import { checkIpatAuth, syncIpat } from "@/app/actions/ipat-sync"
 import { IpatAuthForm, type IpatAuthData } from "@/components/ipat-auth-form"
 import {
@@ -50,6 +50,13 @@ export function RaceList({ races, title, variant = "my", onSyncComplete, isLoadi
   // Betting Wizard State
   const [isBettingWizardOpen, setIsBettingWizardOpen] = useState(false)
   const [bettingWizardMode, setBettingWizardMode] = useState<'manual' | 'image'>('manual')
+  const [editingTicket, setEditingTicket] = useState<Ticket | null>(null)
+
+  const handleEditTicket = (ticket: Ticket) => {
+    setEditingTicket(ticket)
+    setBettingWizardMode('manual')
+    setIsBettingWizardOpen(true)
+  }
 
   useEffect(() => {
     // ダイアログが開かれ、かつ編集モードでない場合に認証状態をチェック
@@ -217,8 +224,12 @@ export function RaceList({ races, title, variant = "my", onSyncComplete, isLoadi
     <div className="flex flex-col h-full">
       <BettingWizard 
         open={isBettingWizardOpen} 
-        onOpenChange={setIsBettingWizardOpen}
+        onOpenChange={(open) => {
+          setIsBettingWizardOpen(open)
+          if (!open) setEditingTicket(null)
+        }}
         defaultMode={bettingWizardMode}
+        editingTicket={editingTicket}
       />
 
       <div className="flex items-stretch gap-2 mb-3">
@@ -400,7 +411,13 @@ export function RaceList({ races, title, variant = "my", onSyncComplete, isLoadi
         {races.length > 0 ? (
           <>
             {races.map((race, index) => (
-              <RaceAccordionItem key={race.raceId} race={race} index={index} variant={variant} />
+              <RaceAccordionItem 
+                key={race.raceId} 
+                race={race} 
+                index={index} 
+                variant={variant} 
+                onEdit={handleEditTicket}
+              />
             ))}
             <div ref={observerTarget} className="py-4 flex justify-center w-full min-h-[20px]">
               {isLoading && (

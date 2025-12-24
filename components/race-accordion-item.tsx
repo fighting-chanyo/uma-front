@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown, Trophy, Ghost } from "lucide-react"
+import { ChevronDown, Trophy, Ghost, Pencil } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CompactBetVisualizer } from "./compact-bet-visualizer"
 import type { Race, Ticket } from "@/types/ticket"
@@ -11,6 +11,7 @@ interface RaceAccordionItemProps {
   race: Race
   index: number
   variant?: "my" | "friend"
+  onEdit?: (ticket: Ticket) => void
 }
 
 const BET_TYPE_MAP: Record<string, string> = {
@@ -30,7 +31,7 @@ const statusConfig = {
   LOSE: { border: "border-l-[#ff003c]/50", bg: "bg-[#ff003c]/5", text: "text-[#ff003c]/50", label: "LOSE" },
 }
 
-export function RaceAccordionItem({ race, index, variant = "my" }: RaceAccordionItemProps) {
+export function RaceAccordionItem({ race, index, variant = "my", onEdit }: RaceAccordionItemProps) {
   const [isOpen, setIsOpen] = useState(false)
   const config = statusConfig[race.status]
   const balance = race.totalReturn - race.totalBet
@@ -110,7 +111,7 @@ export function RaceAccordionItem({ race, index, variant = "my" }: RaceAccordion
           {variant === "my" && myTickets.length > 0 && (
             <div>
               {myTickets.map((ticket) => (
-                <TicketRow key={ticket.id} ticket={ticket} />
+                <TicketRow key={ticket.id} ticket={ticket} onEdit={onEdit} />
               ))}
             </div>
           )}
@@ -144,7 +145,7 @@ export function RaceAccordionItem({ race, index, variant = "my" }: RaceAccordion
   )
 }
 
-function TicketRow({ ticket }: { ticket: Ticket & { owner: "me" | "friend" } }) {
+function TicketRow({ ticket, onEdit }: { ticket: Ticket & { owner: "me" | "friend" }, onEdit?: (ticket: Ticket) => void }) {
   const statusColor = {
     PENDING: "bg-[#00f3ff]",
     WIN: "bg-[#00ff41]",
@@ -153,19 +154,23 @@ function TicketRow({ ticket }: { ticket: Ticket & { owner: "me" | "friend" } }) 
 
   const isAir = ticket.mode === "AIR"
   const betTypeLabel = BET_TYPE_MAP[ticket.content.type] || ticket.content.type
+  const isEditable = onEdit && ticket.owner === "me"
 
   return (
     <div
+      onClick={() => isEditable && onEdit(ticket)}
       className={cn(
-        "grid grid-cols-[auto_1fr_auto] gap-3 px-3 py-1 items-center",
+        "grid grid-cols-[auto_1fr_auto] gap-3 px-3 py-1 items-center group",
         "transition-colors",
         "border-b border-dotted border-gray/40", // はっきりとした白い境界線
         "last:border-b-0", // 最後の項目には境界線なし
+        isEditable && "cursor-pointer hover:bg-white/10",
 
         // 条件に応じてスタイルを適用
         isAir
           ? "bg-white/[0.08] border-l-2 border-dashed border-white/40" // エア馬券のスタイル
-          : "bg-[#202020] hover:bg-[#2d2d2d]", // デフォルトの馬券スタイル
+          : "bg-[#202020]", // デフォルトの馬券スタイル
+          !isEditable && "hover:bg-[#2d2d2d]"
       )}
     >
       {/* Status + Bet Type + Mode Badge */}

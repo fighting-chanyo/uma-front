@@ -9,6 +9,7 @@ import type { Ticket, TicketContent } from "@/types/ticket"
 interface TicketAccordionItemProps {
   ticket: Ticket
   index: number
+  onEdit?: (ticket: Ticket) => void
 }
 
 export const GRID_COLS = "grid grid-cols-[24px_80px_1fr_120px_24px]"
@@ -43,7 +44,7 @@ const getBuyMethodLabel = (content: TicketContent): string => {
   }
 }
 
-export function TicketAccordionItem({ ticket, index }: TicketAccordionItemProps) {
+export function TicketAccordionItem({ ticket, index, onEdit }: TicketAccordionItemProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const isWin = ticket.status === "WIN"
   const isLose = ticket.status === "LOSE"
@@ -51,6 +52,11 @@ export function TicketAccordionItem({ ticket, index }: TicketAccordionItemProps)
 
   const betTypeLabel = BET_TYPE_MAP[ticket.content.type] || ticket.content.type
   const buyTypeLabel = getBuyMethodLabel(ticket.content)
+
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (onEdit) onEdit(ticket)
+  }
 
   return (
     <div
@@ -131,8 +137,18 @@ export function TicketAccordionItem({ ticket, index }: TicketAccordionItemProps)
       >
         <div className="px-3 py-2 ml-[30px] bg-black/40 border-l border-white/10">
           {/* レース名 */}
-          <div className="text-[10px] text-muted-foreground mb-1">
-            {ticket.race_name}
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-[10px] text-muted-foreground">
+              {ticket.race_name}
+            </div>
+            {onEdit && (
+              <button 
+                onClick={handleEdit}
+                className="text-[10px] text-primary hover:underline"
+              >
+                編集
+              </button>
+            )}
           </div>
 
           <CompactBetVisualizer content={ticket.content} />

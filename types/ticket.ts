@@ -36,6 +36,7 @@ export interface Ticket {
   mode: "REAL" | "AIR"
   created_at: string // timestamptz
   receipt_unique_id?: string
+  image_url?: string // 解析元画像のURL
 
   // JOINしたprofilesテーブルの情報
   user_name?: string
