@@ -1,16 +1,20 @@
 import { useState } from 'react';
 import { uploadTicketImage, analyzeTicketQueue } from '@/app/actions/ticket-analysis';
 import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
 
 export function useTicketAnalysis() {
   const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
 
-  const uploadAndAnalyze = async (file: File) => {
+  const uploadAndAnalyze = async (file: File, date?: Date) => {
     setIsUploading(true);
     try {
       const formData = new FormData();
       formData.append('file', file);
+      if (date) {
+        formData.append('date_order', format(date, 'yyyy-MM-dd'));
+      }
       
       // 1. Upload & Create Queue
       const queueItem = await uploadTicketImage(formData);

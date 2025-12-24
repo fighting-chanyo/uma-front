@@ -59,8 +59,8 @@ export function CompactBetVisualizer({ content }: CompactBetVisualizerProps) {
     const sortedPositions = Array.from(axisGroups.keys()).sort((a, b) => a - b)
 
     return (
-      <div className="flex items-center gap-1.5 py-1 flex-wrap">
-        <span className="text-[10px] font-bold text-white bg-white/10 px-1.5 py-0.5 border border-white/30 mr-1">
+      <div className="flex items-center gap-1.5 py-1 flex-wrap overflow-x-auto max-w-full whitespace-nowrap scrollbar-hide">
+        <span className="text-[10px] font-bold text-white bg-white/10 px-1.5 py-0.5 border border-white/30 mr-1 shrink-0">
           {getNagashiLabel()}
         </span>
 
@@ -72,7 +72,7 @@ export function CompactBetVisualizer({ content }: CompactBetVisualizerProps) {
             const horses = axisGroups.get(pos)
             if (horses && horses.length > 0) {
               dataParts.push(
-                <span key={`axis-${pos}`} className="flex items-center gap-1">
+                <span key={`axis-${pos}`} className="flex items-center gap-1 shrink-0">
                   <span className="text-[10px] font-bold text-white/70">{pos}着軸:</span>
                   <span className="text-xs font-mono text-white tracking-wide">
                     {horses.map(toCircledNumber).join("")}
@@ -85,7 +85,7 @@ export function CompactBetVisualizer({ content }: CompactBetVisualizerProps) {
           // 2. 着順指定なしの軸馬 (マルチなど)
           if (axisNoPos.length > 0) {
             dataParts.push(
-              <span key="axis-nopos" className="flex items-center gap-1">
+              <span key="axis-nopos" className="flex items-center gap-1 shrink-0">
                 <span className="text-[10px] font-bold text-white/70">軸:</span>
                 <span className="text-xs font-mono text-white tracking-wide">
                   {axisNoPos.map(toCircledNumber).join("")}
@@ -97,7 +97,7 @@ export function CompactBetVisualizer({ content }: CompactBetVisualizerProps) {
           // 3. 相手馬
           if (content.partners && content.partners.length > 0) {
             dataParts.push(
-              <span key="partners" className="flex items-center gap-1">
+              <span key="partners" className="flex items-center gap-1 shrink-0">
                 <span className="text-[10px] font-bold text-white/70">相手:</span>
                 <span className="text-xs font-mono text-white tracking-wide">
                   {content.partners.map(toCircledNumber).join("")}
@@ -108,7 +108,7 @@ export function CompactBetVisualizer({ content }: CompactBetVisualizerProps) {
 
           // セパレーターで結合して表示
           return dataParts.map((part, idx) => (
-            <div key={idx} className="flex items-center">
+            <div key={idx} className="flex items-center shrink-0">
               {part}
               {idx < dataParts.length - 1 && (
                 <span className="text-muted-foreground/50 mx-1.5">|</span>
@@ -139,14 +139,14 @@ export function CompactBetVisualizer({ content }: CompactBetVisualizerProps) {
       .filter(p => p.data && p.data.length > 0)
 
     return (
-      <div className="flex items-center gap-1.5 py-1 flex-wrap text-xs">
+      <div className="flex items-center gap-1.5 py-1 flex-wrap text-xs overflow-x-auto max-w-full whitespace-nowrap scrollbar-hide">
         {content.method === "FORMATION" && (
-          <span className="text-[10px] font-bold text-white bg-white/10 px-1.5 py-0.5 border border-white/30">
+          <span className="text-[10px] font-bold text-white bg-white/10 px-1.5 py-0.5 border border-white/30 shrink-0">
             フォーメーション
           </span>
         )}
         {positions.map((pos, idx) => (
-          <span key={idx} className="flex items-center gap-1">
+          <span key={idx} className="flex items-center gap-1 shrink-0">
             <span className="text-[10px] text-muted-foreground">
               {pos.label}:
             </span>

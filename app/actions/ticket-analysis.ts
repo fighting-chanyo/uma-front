@@ -18,6 +18,8 @@ export async function uploadTicketImage(formData: FormData) {
     throw new Error('No file provided')
   }
 
+  const dateOrder = formData.get('date_order') as string | null
+
   // Upload to Supabase Storage
   const fileExt = file.name.split('.').pop()
   const fileName = `${user.id}/${Date.now()}.${fileExt}`
@@ -37,7 +39,8 @@ export async function uploadTicketImage(formData: FormData) {
     .insert({
       user_id: user.id,
       image_path: fileName,
-      status: 'pending'
+      status: 'pending',
+      date_order: dateOrder || null
     })
     .select()
     .single()
@@ -71,47 +74,33 @@ export async function analyzeTicketQueue(queueId: string) {
     .eq('id', queueId)
 
   try {
-    // Download image from Storage
-    const { data: fileBlob, error: downloadError } = await supabase.storage
-      .from(BUCKET_NAME)
-      .download(queueItem.image_path)
-
-    if (downloadError || !fileBlob) {
-      throw new Error('Failed to download image')
-    }
-
-    // Call backend API
+      // Call backend API
     const apiUrl = process.env.NEXT_PUBLIC_API_URL
     if (!apiUrl) {
       throw new Error('API URL not configured')
     }
 
-    const formData = new FormData()
-    formData.append('file', fileBlob, 'image.jpg') // Filename is dummy
+    // Fire-and-forget call to backend
+    // Backend will handle image download, analysis, and DB update
+    const endpoint = `${apiUrl}/api/analyze/queue`;
+    console.log(`[Analysis] Calling backend: ${endpoint} for queueId: ${queueId}`);
 
-    const response = await fetch(`${apiUrl}/api/analyze/image`, {
+    const response = await fetch(endpoint, {
       method: 'POST',
-      body: formData,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ queueId }),
+      cache: 'no-store',
     })
 
     if (!response.ok) {
       const errorText = await response.text()
+      console.error(`[Analysis] Backend error: ${response.status} ${response.statusText} - ${errorText}`);
       throw new Error(`Backend error: ${response.statusText} - ${errorText}`)
     }
 
-    const result = await response.json()
-
-    // Update queue with result
-    await supabase
-      .from('analysis_queue')
-      .update({
-        status: 'completed',
-        result_json: result,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', queueId)
-
-    return { success: true, result }
+    return { success: true }
 
   } catch (error: any) {
     console.error('Analysis error:', error)

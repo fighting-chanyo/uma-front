@@ -226,7 +226,10 @@ export function RaceList({ races, title, variant = "my", onSyncComplete, isLoadi
         open={isBettingWizardOpen} 
         onOpenChange={(open) => {
           setIsBettingWizardOpen(open)
-          if (!open) setEditingTicket(null)
+          if (!open) {
+            setEditingTicket(null)
+            if (onSyncComplete) onSyncComplete()
+          }
         }}
         defaultMode={bettingWizardMode}
         editingTicket={editingTicket}

@@ -101,7 +101,9 @@ export function BettingForm({ initialState, onAdd, className, submitLabel, onDel
     const points = calculateCombinations(betType, betMethod, selections, axis, partners, multi, positions);
     setCombinations(points);
     setTotalCost(points * amount);
-    setShowError(false); // Hide error when inputs change
+    
+    // Do not reset showError automatically to keep red borders on missing fields
+    // until they are filled or form is submitted successfully.
   }, [betType, betMethod, selections, axis, partners, multi, amount, positions]);
 
   const isMissingInfo = !date || !place || !raceNo || !amount || combinations === 0;
@@ -135,7 +137,8 @@ export function BettingForm({ initialState, onAdd, className, submitLabel, onDel
           total_cost: amount,
           mode,
           image_hash: initialState?.image_hash,
-          image_url: initialState?.image_url
+          image_url: initialState?.image_url,
+          id: initialState?.id // Preserve ID for update
         };
         onAdd(bet);
       });
@@ -167,7 +170,8 @@ export function BettingForm({ initialState, onAdd, className, submitLabel, onDel
         total_cost: totalCost,
         mode,
         image_hash: initialState?.image_hash,
-        image_url: initialState?.image_url
+        image_url: initialState?.image_url,
+        id: initialState?.id // Preserve ID for update
       };
       
       onAdd(bet);
@@ -200,8 +204,7 @@ export function BettingForm({ initialState, onAdd, className, submitLabel, onDel
             onChange={(e) => {
               const newDate = e.target.value ? new Date(e.target.value) : undefined;
               setDate(newDate);
-              setPlace('');
-              setRaceNo(0);
+              // Do not auto-reset place/race to improve UX
             }}
           >
             <option value="" disabled>選択してください</option>
@@ -223,14 +226,17 @@ export function BettingForm({ initialState, onAdd, className, submitLabel, onDel
             value={place}
             onChange={(e) => {
               setPlace(e.target.value);
-              setRaceNo(0);
+              // Do not auto-reset raceNo to improve UX
             }}
-            disabled={!date}
           >
             <option value="" disabled>選択してください</option>
             {availablePlaces.map(code => (
               <option key={code} value={code}>{PLACE_CODE_TO_NAME[code] || code}</option>
             ))}
+            {/* Show current place if it exists but not in availablePlaces */}
+            {place && !availablePlaces.includes(place) && (
+              <option value={place}>{PLACE_CODE_TO_NAME[place] || place} (選択中)</option>
+            )}
           </select>
         </div>
 
@@ -243,12 +249,15 @@ export function BettingForm({ initialState, onAdd, className, submitLabel, onDel
             )}
             value={raceNo || ''}
             onChange={(e) => setRaceNo(Number(e.target.value))}
-            disabled={!place}
           >
             <option value="" disabled>選択してください</option>
             {availableRaces.map(n => (
               <option key={n} value={n}>{n}R</option>
             ))}
+            {/* Show current raceNo if it exists but not in availableRaces */}
+            {raceNo && !availableRaces.includes(raceNo) && (
+              <option value={raceNo}>{raceNo}R (選択中)</option>
+            )}
           </select>
         </div>
       </div>
@@ -399,7 +408,7 @@ export function BettingForm({ initialState, onAdd, className, submitLabel, onDel
           )}
           <Button 
             onClick={handleAdd} 
-            className="w-full md:w-auto min-w-[200px] bg-accent text-accent-foreground hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full md:w-auto bg-accent text-accent-foreground hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="w-4 h-4 mr-2" />
             {submitLabel || (initialState ? '買い目更新' : '買い目追加')}

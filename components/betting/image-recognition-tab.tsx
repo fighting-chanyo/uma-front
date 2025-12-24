@@ -1,10 +1,13 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Upload, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTicketAnalysis } from '@/hooks/use-ticket-analysis';
 import { TicketFormState } from '@/types/betting';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { useRaceSchedule } from '@/hooks/use-race-schedule';
 
 interface ImageRecognitionTabProps {
   onAddBet: (bet: TicketFormState & { mode: 'REAL' | 'AIR' }) => void;
@@ -13,7 +16,11 @@ interface ImageRecognitionTabProps {
 
 export function ImageRecognitionTab({ onAddBet, onUploadComplete }: ImageRecognitionTabProps) {
   const { uploadAndAnalyze, isUploading } = useTicketAnalysis();
+  const { getAvailableDates } = useRaceSchedule();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [date, setDate] = useState<Date | undefined>(undefined);
+
+  const availableDates = getAvailableDates();
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -21,7 +28,7 @@ export function ImageRecognitionTab({ onAddBet, onUploadComplete }: ImageRecogni
 
     // Process files sequentially or parallel
     for (const file of Array.from(files)) {
-      await uploadAndAnalyze(file);
+      await uploadAndAnalyze(file, date);
     }
     
     // Reset input
@@ -39,6 +46,32 @@ export function ImageRecognitionTab({ onAddBet, onUploadComplete }: ImageRecogni
       <div className="bg-card/30 p-8 rounded-lg border border-border/50 flex flex-col w-full max-w-md items-center text-center">
         <h2 className="text-lg font-semibold mb-4 text-accent">馬券アップロード</h2>
         
+        <div className="w-full mb-6 text-left">
+          <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+            馬券に日時を示す情報がない場合は、今節に開催されたレースとして判断します。<br/>
+            日時を指定する場合は、以下のフォームに入力してください。
+          </p>
+          <select
+            className={cn(
+              "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+              !date && "text-muted-foreground"
+            )}
+            value={date ? format(date, 'yyyy-MM-dd') : ''}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val) setDate(new Date(val));
+              else setDate(undefined);
+            }}
+          >
+            <option value="">日付を選択 (任意)</option>
+            {availableDates.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div 
           className="w-full border-2 border-dashed border-muted-foreground/25 rounded-lg flex flex-col items-center justify-center p-8 transition-colors hover:bg-accent/5 hover:border-primary/50 cursor-pointer"
           onClick={() => !isUploading && fileInputRef.current?.click()}
@@ -48,7 +81,7 @@ export function ImageRecognitionTab({ onAddBet, onUploadComplete }: ImageRecogni
             if (isUploading) return;
             if (e.dataTransfer.files) {
               for (const file of Array.from(e.dataTransfer.files)) {
-                await uploadAndAnalyze(file);
+                await uploadAndAnalyze(file, date);
               }
               if (onUploadComplete) onUploadComplete();
             }

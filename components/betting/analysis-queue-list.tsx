@@ -1,13 +1,44 @@
 import React from 'react';
-import { CheckCircle2, AlertTriangle, Loader2, Edit, Trash2 } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Loader2, Edit, Trash2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AnalysisQueueItemWithUrl } from '@/hooks/use-ticket-analysis-queue';
 import { cn } from '@/lib/utils';
+import { AnalysisResult } from '@/types/analysis';
 
 interface AnalysisQueueListProps {
   items: AnalysisQueueItemWithUrl[];
   onEdit: (item: AnalysisQueueItemWithUrl) => void;
   onDelete: (id: string) => void;
+}
+
+function isAnalysisComplete(result: AnalysisResult | null): boolean {
+  if (!result) return false;
+  
+  // Check race info
+  if (!result.race.date || !result.race.place || !result.race.race_number) {
+    return false;
+  }
+
+  // Check tickets
+  if (!result.tickets || result.tickets.length === 0) {
+    return false;
+  }
+
+  // Check each ticket for essential info
+  // Note: We might need stricter checks depending on requirements, 
+  // but for now, let's check if basic fields are present.
+  // Assuming 'content' always exists if ticket exists.
+  for (const ticket of result.tickets) {
+    if (!ticket.bet_type || !ticket.buy_type || !ticket.amount_per_point) {
+      return false;
+    }
+    // Check selections? 
+    if (!ticket.content.selections || ticket.content.selections.length === 0) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 export function AnalysisQueueList({ items, onEdit, onDelete }: AnalysisQueueListProps) {
@@ -19,13 +50,18 @@ export function AnalysisQueueList({ items, onEdit, onDelete }: AnalysisQueueList
     <div className="space-y-2 mb-6">
       <h3 className="text-sm font-medium text-muted-foreground mb-2">解析中・確認待ち ({items.length})</h3>
       <div className="grid gap-2">
-        {items.map((item) => (
+        {items.map((item) => {
+          const result = item.result_json as AnalysisResult | null;
+          const isComplete = item.status === 'completed' ? isAnalysisComplete(result) : false;
+          
+          return (
           <div 
             key={item.id}
             className={cn(
               "flex items-center gap-3 p-2 rounded-lg border bg-card transition-colors",
               item.status === 'error' && "border-destructive/50 bg-destructive/5",
-              item.status === 'completed' && "border-green-500/50 bg-green-500/5"
+              item.status === 'completed' && isComplete && "border-green-500/50 bg-green-500/5",
+              item.status === 'completed' && !isComplete && "border-yellow-500/50 bg-yellow-500/5"
             )}
           >
             {/* Thumbnail */}
@@ -40,15 +76,19 @@ export function AnalysisQueueList({ items, onEdit, onDelete }: AnalysisQueueList
             {/* Info */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium truncate max-w-[120px]">
+                <span className="text-sm font-medium truncate max-w-[150px]">
                   {item.status === 'pending' ? '待機中' : 
                    item.status === 'processing' ? '解析中' :
-                   item.status === 'completed' ? '確認待ち' : 'エラー'}
+                   item.status === 'completed' ? (isComplete ? '解析完了-OK' : '解析完了-要補完') : 'エラー'}
                 </span>
-                {getStatusBadge(item.status)}
+                {getStatusBadge(item.status, isComplete)}
               </div>
               <div className="text-xs text-muted-foreground truncate">
-                {item.error_message || (item.status === 'completed' ? 'タップして内容を確認・登録' : '解析完了までお待ちください')}
+                {item.error_message || (
+                  item.status === 'completed' 
+                    ? (isComplete ? '内容を確認・登録してください' : '一部の情報を解析できませんでした・手動で補完してください。')
+                    : '解析完了までお待ちください'
+                )}
               </div>
             </div>
 
@@ -74,22 +114,24 @@ export function AnalysisQueueList({ items, onEdit, onDelete }: AnalysisQueueList
               </Button>
             </div>
           </div>
-        ))}
+        )})}
       </div>
     </div>
   );
 }
 
-function getStatusBadge(status: string) {
+function getStatusBadge(status: string, isComplete: boolean) {
   switch (status) {
     case 'pending':
       return <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">待機中</span>;
     case 'processing':
       return <Loader2 className="w-3 h-3 animate-spin text-primary" />;
     case 'completed':
-      return <CheckCircle2 className="w-3 h-3 text-green-500" />;
+      return isComplete 
+        ? <CheckCircle2 className="w-3 h-3 text-green-500" />
+        : <AlertTriangle className="w-3 h-3 text-yellow-500" />;
     case 'error':
-      return <AlertTriangle className="w-3 h-3 text-destructive" />;
+      return <AlertCircle className="w-3 h-3 text-destructive" />;
     default:
       return null;
   }

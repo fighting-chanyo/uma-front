@@ -9,11 +9,12 @@ import { TicketFormState, BetType } from '@/types/betting';
 import { Button } from '@/components/ui/button';
 import { saveBets } from '@/app/actions/ticket';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Check } from 'lucide-react';
+import { Loader2, Check, ZoomIn } from 'lucide-react';
 import { AnalysisQueueItemWithUrl } from "@/hooks/use-ticket-analysis-queue"
 import { deleteAnalysisQueue } from "@/app/actions/ticket-analysis"
-import { calculateCombinations } from '@/lib/betting-utils';
+import { calculateCombinations, PLACE_NAME_TO_CODE } from '@/lib/betting-utils';
 import type { Ticket } from "@/types/ticket"
+import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 
 import { deleteTicket } from '@/app/actions/ticket';
 
@@ -49,40 +50,75 @@ export function BettingInterface({ defaultTab = 'manual', onClose, editingQueueI
   // Initialize from editingQueueItem
   useEffect(() => {
     if (editingQueueItem && editingQueueItem.result_json) {
-      const results = editingQueueItem.result_json.results || [];
-      const newBets = results.map(result => {
-         if (!result.betType || !result.method) return null;
+      let resultData = editingQueueItem.result_json;
+      
+      // Parse string if necessary (though Supabase client usually returns object for JSONB)
+      if (typeof resultData === 'string') {
+        try {
+          resultData = JSON.parse(resultData);
+        } catch (e) {
+          console.error('Failed to parse result_json', e);
+          return;
+        }
+      }
 
-         const combinations = calculateCombinations(
-            result.betType,
-            result.method,
-            result.selections || [],
-            result.axis || [],
-            result.partners || [],
-            result.multi || false,
-            result.positions || []
-          );
+      let newBets: (TicketFormState & { mode: 'REAL' | 'AIR' })[] = [];
 
-         return {
-            race_date: result.date || '',
-            place_code: result.place || '',
-            race_number: result.raceNumber || 0,
-            type: result.betType,
-            method: result.method,
-            selections: result.selections || [],
-            axis: result.axis || [],
-            partners: result.partners || [],
-            positions: result.positions || [],
-            multi: result.multi || false,
-            amount: result.amount || 100,
-            total_points: combinations,
-            total_cost: combinations * (result.amount || 100),
-            mode: 'REAL',
-            image_url: editingQueueItem.publicUrl
-         } as TicketFormState & { mode: 'REAL' | 'AIR' };
-      }).filter(Boolean);
+      // Handle new data structure: { race: {...}, tickets: [...], confidence: ... }
+      // We cast to any here because we are handling the transition from old to new structure
+      // or if the type definition isn't fully propagated yet in this context
+      const data = resultData as any;
 
-      setStagedBets(newBets as any);
+      if (data.tickets && Array.isArray(data.tickets)) {
+        const date = data.race?.date || '';
+        const placeCode = data.race?.place || ''; 
+        const raceNumber = data.race?.race_number || 0;
+
+        newBets = data.tickets.map((ticket: any) => {
+            const content = ticket.content || {};
+            const method = ticket.buy_type || 'NORMAL';
+            const type = ticket.bet_type;
+            
+            let selections = content.selections || [];
+            const axis = content.axis || [];
+            const partners = content.partners || [];
+            const positions = content.positions || [];
+            const multi = content.multi || false;
+
+            // Calculate combinations as fallback, but prefer backend values
+            const combinations = calculateCombinations(
+                type,
+                method as any,
+                selections,
+                axis,
+                partners,
+                multi,
+                positions
+            );
+
+            return {
+                race_date: date,
+                place_code: placeCode,
+                race_number: raceNumber,
+                type: type,
+                method: method,
+                selections: selections,
+                axis: axis,
+                partners: partners,
+                positions: positions,
+                multi: multi,
+                amount: ticket.amount_per_point || 100,
+                // Use backend values if available, otherwise fallback to calculation
+                total_points: ticket.total_points ?? combinations,
+                total_cost: ticket.total_cost ?? (combinations * (ticket.amount_per_point || 100)),
+                mode: 'REAL',
+                image_url: editingQueueItem.publicUrl,
+                image_hash: editingQueueItem.id
+            };
+        });
+      }
+      
+      setStagedBets(newBets);
       setIsLoaded(true);
     }
   }, [editingQueueItem]);
@@ -108,7 +144,8 @@ export function BettingInterface({ defaultTab = 'manual', onClose, editingQueueI
         total_points: editingTicket.total_points,
         total_cost: editingTicket.total_cost,
         mode: editingTicket.mode,
-        image_url: editingTicket.image_url
+        image_url: editingTicket.image_url,
+        image_hash: editingTicket.receipt_unique_id
       };
       
       setStagedBets([bet]);
@@ -169,17 +206,20 @@ export function BettingInterface({ defaultTab = 'manual', onClose, editingQueueI
         });
         if (onClose) onClose();
       } else {
+        const errorMsg = result.errors && result.errors.length > 0 
+            ? result.errors.map((e: any) => e.error).join(', ') 
+            : "一部の買い目を保存できませんでした。";
         toast({
           title: "登録エラー",
-          description: "一部の買い目を保存できませんでした。",
+          description: errorMsg,
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
       toast({
         title: "予期せぬエラー",
-        description: "エラーが発生しました。",
+        description: error.message || "エラーが発生しました。",
         variant: "destructive",
       });
     } finally {
@@ -242,42 +282,106 @@ export function BettingInterface({ defaultTab = 'manual', onClose, editingQueueI
 
   if (editingTicket) {
     return (
-      <div className="space-y-8 w-full pb-20">
-        {stagedBets.length > 0 && (
-          <ManualInputTab 
-            key={editingTicket.id}
-            onAddBet={handleUpdateTicket} 
-            initialState={stagedBets[0]} 
-            submitLabel="更新"
-            onDelete={handleDeleteTicket}
-          />
-        )}
+      <div className="flex flex-col h-full gap-4">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+           <div className="space-y-4">
+                {editingTicket.image_url && (
+                  <div className="w-full flex justify-center bg-muted/30 p-2 rounded-lg border border-border/50 shrink-0 relative group">
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <div className="relative cursor-zoom-in">
+                          <img 
+                            src={editingTicket.image_url} 
+                            alt="解析対象画像" 
+                            className="max-h-[200px] object-contain rounded shadow-sm transition-opacity group-hover:opacity-90"
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded">
+                            <ZoomIn className="w-8 h-8 text-white drop-shadow-md" />
+                          </div>
+                        </div>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-[90vw] max-h-[90vh] p-0 border-none bg-transparent shadow-none flex items-center justify-center">
+                        <DialogTitle className="sr-only">解析画像拡大</DialogTitle>
+                        <img 
+                          src={editingTicket.image_url} 
+                          alt="解析対象画像(拡大)" 
+                          className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+                        />
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                )}
+
+                {stagedBets.length > 0 && (
+                  <ManualInputTab 
+                    key={editingTicket.id}
+                    onAddBet={handleUpdateTicket} 
+                    initialState={stagedBets[0]} 
+                    submitLabel="更新"
+                    onDelete={handleDeleteTicket}
+                  />
+                )}
+           </div>
+        </div>
       </div>
     )
   }
 
   if (editingQueueItem) {
      return (
-        <div className="space-y-8 w-full pb-20">
-             {editingBetIndex !== null && (
-                <div className="border-b border-border pb-8">
-                    <ManualInputTab 
-                        onAddBet={handleAddBet} 
-                        initialState={stagedBets[editingBetIndex]} 
-                    />
-                    <div className="flex justify-end mt-2">
-                        <Button variant="ghost" onClick={() => setEditingBetIndex(null)}>キャンセル</Button>
+        <div className="flex flex-col h-full gap-4">
+             <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+                <div className="space-y-4">
+                  {editingQueueItem.publicUrl && (
+                    <div className="w-full flex justify-center bg-muted/30 p-2 rounded-lg border border-border/50 shrink-0 relative group">
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <div className="relative cursor-zoom-in">
+                            <img 
+                              src={editingQueueItem.publicUrl} 
+                              alt="解析対象画像" 
+                              className="max-h-[200px] object-contain rounded shadow-sm transition-opacity group-hover:opacity-90"
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded">
+                              <ZoomIn className="w-8 h-8 text-white drop-shadow-md" />
+                            </div>
+                          </div>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-[90vw] max-h-[90vh] p-0 border-none bg-transparent shadow-none flex items-center justify-center">
+                          <DialogTitle className="sr-only">解析画像拡大</DialogTitle>
+                          <img 
+                            src={editingQueueItem.publicUrl} 
+                            alt="解析対象画像(拡大)" 
+                            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+                          />
+                        </DialogContent>
+                      </Dialog>
                     </div>
-                </div>
-             )}
+                  )}
 
-             <StagedBetsList 
-                bets={stagedBets} 
-                onRemove={handleRemoveBet} 
-                onEdit={(index) => setEditingBetIndex(index)}
-             />
+                  {editingBetIndex !== null && (
+                      <div className="border-b border-border pb-4">
+                          <h3 className="font-semibold mb-4 text-accent">買い目編集</h3>
+                          <ManualInputTab 
+                              onAddBet={handleAddBet} 
+                              initialState={stagedBets[editingBetIndex]} 
+                              submitLabel="更新"
+                          />
+                          <div className="flex justify-end mt-2">
+                              <Button variant="ghost" onClick={() => setEditingBetIndex(null)}>キャンセル</Button>
+                          </div>
+                      </div>
+                  )}
+
+                   <StagedBetsList 
+                      bets={stagedBets} 
+                      onRemove={handleRemoveBet} 
+                      onEdit={(index) => setEditingBetIndex(index)}
+                   />
+                </div>
+             </div>
              
-             <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-md border-t border-border flex justify-end gap-4 z-50">
+             <div className="flex-none pt-4 border-t border-border flex justify-end gap-4 bg-background">
                 <Button variant="outline" onClick={onClose} disabled={isSaving}>
                   キャンセル
                 </Button>

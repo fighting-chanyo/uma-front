@@ -10,7 +10,13 @@ export function useTicketAnalysisQueue() {
   const [queueItems, setQueueItems] = useState<AnalysisQueueItemWithUrl[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const getPublicUrl = (path: string) => {
+  const getPublicUrl = (path: string, status: string) => {
+    if (path.startsWith('http')) {
+      return path;
+    }
+    if (status === 'completed') {
+      return `https://storage.googleapis.com/jra-ipat-scraper-images/archive/${path}`;
+    }
     return supabase.storage.from('ticket-images').getPublicUrl(path).data.publicUrl;
   };
 
@@ -30,7 +36,7 @@ export function useTicketAnalysisQueue() {
       } else {
         const itemsWithUrl = (data as AnalysisQueueItem[]).map(item => ({
           ...item,
-          publicUrl: getPublicUrl(item.image_path)
+          publicUrl: getPublicUrl(item.image_path, item.status)
         }));
         setQueueItems(itemsWithUrl);
       }
@@ -52,12 +58,12 @@ export function useTicketAnalysisQueue() {
         (payload) => {
           if (payload.eventType === 'INSERT') {
             const newItem = payload.new as AnalysisQueueItem;
-            setQueueItems((prev) => [{ ...newItem, publicUrl: getPublicUrl(newItem.image_path) }, ...prev]);
+            setQueueItems((prev) => [{ ...newItem, publicUrl: getPublicUrl(newItem.image_path, newItem.status) }, ...prev]);
           } else if (payload.eventType === 'UPDATE') {
             const updatedItem = payload.new as AnalysisQueueItem;
             setQueueItems((prev) =>
               prev.map((item) =>
-                item.id === updatedItem.id ? { ...updatedItem, publicUrl: getPublicUrl(updatedItem.image_path) } : item
+                item.id === updatedItem.id ? { ...updatedItem, publicUrl: getPublicUrl(updatedItem.image_path, updatedItem.status) } : item
               )
             );
           } else if (payload.eventType === 'DELETE') {

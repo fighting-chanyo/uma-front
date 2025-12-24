@@ -145,6 +145,7 @@ export default function DashboardPage() {
     mode: t.mode,
     created_at: t.created_at,
     receipt_unique_id: t.receipt_unique_id,
+    image_url: t.image_url,
     race_name: t.races?.name || '',
     race_date: t.races?.date || '',
     venue: getVenueName(t.races?.place_code || ''),
@@ -868,7 +869,11 @@ export default function DashboardPage() {
         open={isBettingWizardOpen} 
         onOpenChange={(open) => {
           setIsBettingWizardOpen(open)
-          if (!open) setEditingQueueItem(null)
+          if (!open) {
+            setEditingQueueItem(null)
+            fetchMyTickets(false)
+            fetchSummary()
+          }
         }}
         defaultMode={editingQueueItem ? 'manual' : 'manual'}
         editingQueueItem={editingQueueItem}
