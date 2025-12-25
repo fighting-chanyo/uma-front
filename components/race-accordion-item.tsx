@@ -164,62 +164,61 @@ function TicketRow({ ticket, onEdit }: { ticket: Ticket & { owner: "me" | "frien
     <div
       onClick={() => isEditable && onEdit(ticket)}
       className={cn(
-        "grid grid-cols-[auto_1fr_auto] gap-3 px-3 py-1 items-center group",
-        "transition-colors",
-        "border-b border-dotted border-gray/40", // はっきりとした白い境界線
-        "last:border-b-0", // 最後の項目には境界線なし
+        "px-3 py-2 md:py-1 group transition-colors border-b border-dotted border-gray/40 last:border-b-0",
         isEditable && "cursor-pointer hover:bg-white/10",
-
-        // 条件に応じてスタイルを適用
         isAir
-          ? "bg-white/[0.08] border-l-2 border-dashed border-white/40" // エア馬券のスタイル
-          : "bg-[#202020]", // デフォルトの馬券スタイル
-          !isEditable && "hover:bg-[#2d2d2d]"
+          ? "bg-white/[0.08] border-l-2 border-dashed border-white/40"
+          : "bg-[#202020]",
+        !isEditable && "hover:bg-[#2d2d2d]"
       )}
     >
-      {/* Status + Bet Type + Mode Badge */}
-      <div className="flex items-center gap-2">
-        <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", statusColor[ticket.status])} />
-        {isAir && (
-          <span className="text-[10px] font-bold px-1.5 py-0.5 border border-dashed text-white/70 border-white/40 bg-white/5">
-            エア
+      <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_auto] gap-1 md:gap-3 items-center">
+        {/* Mobile: Top Row (Status + Type + Content) / PC: Col 1 & 2 */}
+        <div className="flex items-center gap-2 min-w-0 md:contents">
+          {/* Status + Bet Type + Mode Badge */}
+          <div className="flex items-center gap-2 shrink-0">
+            <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", statusColor[ticket.status])} />
+            {isAir && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 border border-dashed text-white/70 border-white/40 bg-white/5">
+                エア
+              </span>
+            )}
+            <span
+              className={cn(
+                "text-[10px] font-bold px-1.5 py-0.5 border",
+                isAir
+                  ? "text-yellow-400/70 border-yellow-400/30 bg-yellow-400/5"
+                  : "text-yellow-400 bg-yellow-400/10 border-yellow-400/30",
+              )}
+            >
+              {betTypeLabel}
+            </span>
+          </div>
+
+          {/* Bet Content */}
+          <div className="min-w-0 flex-1">
+            <CompactBetVisualizer content={ticket.content} />
+          </div>
+        </div>
+
+        {/* Mobile: Bottom Row (Amount) / PC: Col 3 */}
+        <div className="text-right text-xs font-mono flex items-center justify-end gap-3 whitespace-nowrap w-full md:w-auto border-t border-white/5 pt-1 md:border-t-0 md:pt-0 mt-1 md:mt-0">
+          <span className="text-muted-foreground">
+            ¥{(ticket.total_cost ?? 0).toLocaleString()}
+            {ticket.total_cost !== ticket.amount_per_point && (
+              <span className="text-[10px] ml-1">
+                (1点¥{ticket.amount_per_point.toLocaleString()})
+              </span>
+            )}
           </span>
-        )}
-        <span
-          className={cn(
-            "text-[10px] font-bold px-1.5 py-0.5 border",
-            isAir
-              ? "text-yellow-400/70 border-yellow-400/30 bg-yellow-400/5" // エア馬券の券種も少し強調
-              : "text-yellow-400 bg-yellow-400/10 border-yellow-400/30",
-          )}
-        >
-          {betTypeLabel}
-        </span>
-      </div>
-
-      {/* Bet Content */}
-      <div className="min-w-0">
-        <CompactBetVisualizer content={ticket.content} />
-      </div>
-
-      {/* Amount / Payout */}
-      <div className="text-right text-xs font-mono flex items-center justify-end gap-3 whitespace-nowrap">
-        {/* データ変換が不完全な場合に備え、?? 0 でフォールバックしエラーを防ぐ */}
-        <span className="text-muted-foreground">
-          ¥{(ticket.total_cost ?? 0).toLocaleString()}
-          {ticket.total_cost !== ticket.amount_per_point && (
-            <span className="text-[10px] ml-1">
-              (1点¥{ticket.amount_per_point.toLocaleString()})
+          
+          {ticket.status === "WIN" && ticket.payout && (
+            <span className="text-[#00ff41] font-bold">
+              WIN:¥{ticket.payout.toLocaleString()}
             </span>
           )}
-        </span>
-        
-        {ticket.status === "WIN" && ticket.payout && (
-          <span className="text-[#00ff41] font-bold">
-            WIN:¥{ticket.payout.toLocaleString()}
-          </span>
-        )}
-        {ticket.status === "LOSE" && <span className="text-[#ff003c]">LOSE</span>}
+          {ticket.status === "LOSE" && <span className="text-[#ff003c]">LOSE</span>}
+        </div>
       </div>
     </div>
   )
