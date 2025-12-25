@@ -12,7 +12,7 @@ interface TicketAccordionItemProps {
   onEdit?: (ticket: Ticket) => void
 }
 
-export const GRID_COLS = "grid grid-cols-[24px_80px_1fr_120px_24px]"
+export const GRID_COLS = "grid grid-cols-[24px_1fr_24px] md:grid-cols-[24px_1fr_24px]"
 
 const BET_TYPE_MAP: Record<string, string> = {
   WIN: "単勝",
@@ -77,49 +77,84 @@ export function TicketAccordionItem({ ticket, index, onEdit }: TicketAccordionIt
         {/* Column 1: Status Icon */}
         <StatusIcon status={ticket.status} />
 
-        {/* Column 2: 場所+R (固定幅) */}
-        <div className="flex flex-col">
-          <span className="text-xs font-bold text-foreground whitespace-nowrap">
-            {ticket.venue} {ticket.race_number}R
-          </span>
-          <span className="text-[9px] font-mono text-muted-foreground">
-            {ticket.race_date?.replace(/\//g, ".")}
-          </span>
+        {/* Column 2: Main Info Container */}
+        <div className="grid grid-cols-1 md:grid-cols-[80px_1fr_120px] gap-1 md:gap-2 items-center min-w-0">
+            
+            {/* Mobile: Top Row (Place + Type) / PC: Place & Type separate */}
+            <div className="contents md:hidden">
+                <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold text-foreground whitespace-nowrap">
+                            {ticket.venue} {ticket.race_number}R
+                        </span>
+                        <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 bg-[#ff003c]/15 border border-[#ff003c]/30 text-[#ff003c] text-[9px] font-bold">
+                            {betTypeLabel}
+                        </span>
+                        <span className="shrink-0 inline-flex items-center px-1 py-0.5 bg-white/5 border border-white/20 text-[9px] font-mono text-muted-foreground">
+                            {buyTypeLabel}
+                        </span>
+                    </div>
+                    {/* Amount Row */}
+                    <div className="flex items-center justify-between border-t border-white/5 pt-1 mt-0.5">
+                         <span className="text-xs font-mono font-bold text-foreground">
+                            ¥{ticket.total_cost.toLocaleString()}
+                         </span>
+                         {isWin && ticket.payout && (
+                            <span className="text-[10px] font-mono text-[#00ff41]">
+                              +¥{ticket.payout.toLocaleString()}
+                            </span>
+                          )}
+                    </div>
+                </div>
+            </div>
+
+            {/* PC Layout (Hidden on Mobile) */}
+            <div className="hidden md:contents">
+                {/* Place */}
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-foreground whitespace-nowrap">
+                    {ticket.venue} {ticket.race_number}R
+                  </span>
+                  <span className="text-[9px] font-mono text-muted-foreground">
+                    {ticket.race_date?.replace(/\//g, ".")}
+                  </span>
+                </div>
+
+                {/* Type */}
+                <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+                  <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 bg-[#ff003c]/15 border border-[#ff003c]/30 text-[#ff003c] text-[9px] font-bold">
+                    {betTypeLabel}
+                  </span>
+                  <span className="shrink-0 inline-flex items-center px-1 py-0.5 bg-white/5 border border-white/20 text-[9px] font-mono text-muted-foreground">
+                    {buyTypeLabel}
+                  </span>
+                  {ticket.user_name && (
+                    <span className="text-[9px] text-[#00f3ff]/70 truncate">
+                      @{ticket.user_name}
+                    </span>
+                  )}
+                </div>
+
+                {/* Amount */}
+                <div className="flex flex-col items-end">
+                  <span className="text-xs font-mono font-bold text-foreground">
+                    ¥{ticket.total_cost.toLocaleString()}
+                    {ticket.total_cost !== ticket.amount_per_point && (
+                      <span className="text-[10px] font-normal text-muted-foreground ml-1">
+                        (1点¥{ticket.amount_per_point.toLocaleString()})
+                      </span>
+                    )}
+                  </span>
+                  {isWin && ticket.payout && (
+                    <span className="text-[10px] font-mono text-[#00ff41]">
+                      +¥{ticket.payout.toLocaleString()}
+                    </span>
+                  )}
+                </div>
+            </div>
         </div>
 
-        {/* Column 3: 券種 + 買い方 (可変幅) */}
-        <div className="flex items-center gap-2 min-w-0 overflow-hidden">
-          <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 bg-[#ff003c]/15 border border-[#ff003c]/30 text-[#ff003c] text-[9px] font-bold">
-            {betTypeLabel}
-          </span>
-          <span className="shrink-0 inline-flex items-center px-1 py-0.5 bg-white/5 border border-white/20 text-[9px] font-mono text-muted-foreground">
-            {buyTypeLabel}
-          </span>
-          {ticket.user_name && (
-            <span className="text-[9px] text-[#00f3ff]/70 truncate">
-              @{ticket.user_name}
-            </span>
-          )}
-        </div>
-
-        {/* Column 4: 金額 + ステータス (固定幅) */}
-        <div className="flex flex-col items-end">
-          <span className="text-xs font-mono font-bold text-foreground">
-            ¥{ticket.total_cost.toLocaleString()}
-            {ticket.total_cost !== ticket.amount_per_point && (
-              <span className="text-[10px] font-normal text-muted-foreground ml-1">
-                (1点¥{ticket.amount_per_point.toLocaleString()})
-              </span>
-            )}
-          </span>
-          {isWin && ticket.payout && (
-            <span className="text-[10px] font-mono text-[#00ff41]">
-              +¥{ticket.payout.toLocaleString()}
-            </span>
-          )}
-        </div>
-
-        {/* Column 5: 開閉アイコン */}
+        {/* Column 3: Expand Icon */}
         <ChevronRight
           className={cn(
             "shrink-0 h-4 w-4 text-muted-foreground transition-transform duration-200",

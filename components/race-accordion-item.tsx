@@ -70,26 +70,30 @@ export function RaceAccordionItem({ race, index, variant = "my", onEdit }: RaceA
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "w-full grid grid-cols-[140px_1fr_90px_24px] gap-3 px-3 py-3 items-center",
+          "w-full grid grid-cols-[1fr_auto_24px] md:grid-cols-[1fr_90px_24px] gap-2 md:gap-3 px-3 py-3 items-center",
           "hover:bg-white/[0.03] transition-colors text-left",
         )}
       >
-        <div className="flex items-center gap-1.5">
+        {/* Race Info & Name Container */}
+        <div className="grid grid-cols-1 md:grid-cols-[140px_1fr] gap-1 md:gap-3 min-w-0">
+          {/* Date & Place */}
+          <div className="flex items-center gap-1.5">
              <span className="text-xs text-muted-foreground font-mono whitespace-nowrap">{formattedDate}</span>
-          <span className="text-sm md:text-base font-bold text-foreground whitespace-nowrap tracking-wide">
-            {race.venue} {race.raceNumber}R
-          </span>
-        </div>
-
-        {/* Race Name */}
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-xs md:text-sm font-medium text-foreground truncate">{race.raceName}</span>
-          {race.status === "WIN" && <Trophy className="w-4 h-4 text-[#00ff41] flex-shrink-0" />}
-          {race.status === "PENDING" && (
-            <span className="text-[10px] font-bold text-[#00f3ff] bg-[#00f3ff]/10 px-1.5 py-0.5 rounded border border-[#00f3ff]/30">
-              未確定
+            <span className="text-sm md:text-base font-bold text-foreground whitespace-nowrap tracking-wide">
+              {race.venue} {race.raceNumber}R
             </span>
-          )}
+          </div>
+
+          {/* Race Name */}
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-xs md:text-sm font-medium text-foreground truncate">{race.raceName}</span>
+            {race.status === "WIN" && <Trophy className="w-4 h-4 text-[#00ff41] flex-shrink-0" />}
+            {race.status === "PENDING" && (
+              <span className="text-[10px] font-bold text-[#00f3ff] bg-[#00f3ff]/10 px-1.5 py-0.5 rounded border border-[#00f3ff]/30">
+                未確定
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Balance */}

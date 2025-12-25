@@ -62,9 +62,23 @@ export function TicketList({ tickets, title, isOwn, onEdit }: TicketListProps) {
           )}
         >
           <span>ST</span>
-          <span>PLACE</span>
-          <span>TYPE / INFO</span>
-          <span className="text-right">AMOUNT</span>
+          
+          {/* Main Info Header */}
+          <div className="grid grid-cols-1 md:grid-cols-[80px_1fr_120px] gap-1 md:gap-2 items-center">
+             {/* Mobile Header */}
+             <div className="md:hidden flex items-center justify-between">
+                <span>INFO</span>
+                <span>AMOUNT</span>
+             </div>
+
+             {/* PC Header */}
+             <div className="hidden md:contents">
+                <span>PLACE</span>
+                <span>TYPE / INFO</span>
+                <span className="text-right">AMOUNT</span>
+             </div>
+          </div>
+
           <span></span>
         </div>
 
