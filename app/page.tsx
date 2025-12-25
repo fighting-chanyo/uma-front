@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect, useCallback } from "react"
+import { useState, useMemo, useEffect, useCallback, useRef } from "react"
 import { Header } from "@/components/header"
 import { RaceList } from "@/components/race-list"
 import { MobileNav } from "@/components/mobile-nav"
@@ -99,7 +99,7 @@ export default function DashboardPage() {
   const { queueItems } = useTicketAnalysisQueue()
   const [editingQueueItem, setEditingQueueItem] = useState<AnalysisQueueItemWithUrl | null>(null)
   const [isBettingWizardOpen, setIsBettingWizardOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<"my" | "friend" | "analysis">("my")
+  const [activeTab, setActiveTab] = useState<"my" | "friend">("my")
   const [isFriendModalOpen, setIsFriendModalOpen] = useState(false)
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false)
   const [userProfile, setUserProfile] = useState<{ name: string; avatarUrl: string } | null>(null)
@@ -122,6 +122,7 @@ export default function DashboardPage() {
   const [isFriendLoading, setIsFriendLoading] = useState(false)
 
   const LIMIT = 20
+  const hasLoadedRef = useRef(false)
 
   const [filterState, setFilterState] = useState<FilterState>({
     displayMode: "BOTH",
@@ -155,12 +156,12 @@ export default function DashboardPage() {
   })
 
   // 自分のチケットを再取得する関数
-  const fetchMyTickets = async (isLoadMore = false) => {
+  const fetchMyTickets = async (isLoadMore = false, showLoading = true) => {
     // ローディング中で、かつ追加読み込みの場合は重複リクエストを防ぐ
     // 初期ロード(isLoadMore=false)の場合は、強制的にリロードさせるためにチェックしない（または必要に応じて制御）
     if (isLoadMore && isLoading) return
 
-    setIsLoading(true)
+    if (showLoading) setIsLoading(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
@@ -201,7 +202,7 @@ export default function DashboardPage() {
     } catch (error) {
       console.error('Error refreshing tickets:', error)
     } finally {
-      setIsLoading(false)
+      if (showLoading) setIsLoading(false)
     }
   }
 
@@ -510,16 +511,18 @@ export default function DashboardPage() {
           await refreshFriendRequests()
         }
 
-        // 1. フレンド一覧の取得
+        // 1. フレンド一覧の取得 (双方向)
         const { data: friendsData, error: friendsError } = await supabase
           .from('friends')
-          .select('friend_id')
-          .eq('user_id', currentUserId)
+          .select('user_id, friend_id')
+          .or(`user_id.eq.${currentUserId},friend_id.eq.${currentUserId}`)
           .eq('status', 'ACCEPTED')
         
         if (friendsError) throw friendsError
         
-        const friendIds = friendsData?.map(f => f.friend_id) || []
+        const friendIds = friendsData?.map(f => 
+          f.user_id === currentUserId ? f.friend_id : f.user_id
+        ) || []
         
         if (friendIds.length > 0) {
           const { data: profilesData, error: profilesError } = await supabase
@@ -537,11 +540,16 @@ export default function DashboardPage() {
           setFriends(mappedFriends)
           
           // フレンドが読み込まれたらフィルタの選択状態を更新（全員選択）
-          setFilterState(prev => ({ ...prev, selectedFriendIds: mappedFriends.map(f => f.id) }))
+          // 初期ロード時のみ、または選択状態が空の場合のみ更新するなどの制御が必要かもしれないが、
+          // ここではフレンドリストが更新されたら選択状態もリセットするという挙動にする
+          if (!hasLoadedRef.current) {
+            setFilterState(prev => ({ ...prev, selectedFriendIds: mappedFriends.map(f => f.id) }))
+          }
         }
 
         // 2. 自分のチケット取得 (初期ロード)
-        await fetchMyTickets()
+        await fetchMyTickets(false, !hasLoadedRef.current)
+        hasLoadedRef.current = true
 
         // リアルタイム更新の購読 (INSERT と UPDATE を監視)
         channel = supabase
@@ -806,11 +814,6 @@ export default function DashboardPage() {
                 onLoadMore={loadMoreFriendTickets}
                 summary={friendSummary}
               />
-            )}
-            {activeTab === "analysis" && (
-              <div className="glass-panel p-6 text-center">
-                <p className="text-muted-foreground">分析機能は準備中です</p>
-              </div>
             )}
           </main>
         </>

@@ -4,15 +4,14 @@ import { Ticket, Users, BarChart3 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface MobileNavProps {
-  activeTab: "my" | "friend" | "analysis"
-  onTabChange: (tab: "my" | "friend" | "analysis") => void
+  activeTab: "my" | "friend"
+  onTabChange: (tab: "my" | "friend") => void
 }
 
 export function MobileNav({ activeTab, onTabChange }: MobileNavProps) {
   const tabs = [
     { id: "my" as const, label: "自分", icon: Ticket },
     { id: "friend" as const, label: "友達", icon: Users },
-    { id: "analysis" as const, label: "分析", icon: BarChart3 },
   ]
 
   return (

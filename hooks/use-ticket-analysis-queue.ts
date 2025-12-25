@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { AnalysisQueueItem } from '@/types/analysis';
+import { analyzeTicketQueue } from '@/app/actions/ticket-analysis';
 
 export interface AnalysisQueueItemWithUrl extends AnalysisQueueItem {
   publicUrl: string;
@@ -39,6 +40,14 @@ export function useTicketAnalysisQueue() {
           publicUrl: getPublicUrl(item.image_path, item.status)
         }));
         setQueueItems(itemsWithUrl);
+
+        // 自動Kick: pending状態のものがあれば再実行
+        itemsWithUrl.forEach(item => {
+          if (item.status === 'pending') {
+            console.log(`[AutoKick] Restarting pending job: ${item.id}`);
+            analyzeTicketQueue(item.id).catch(e => console.error(`[AutoKick] Failed to restart job ${item.id}:`, e));
+          }
+        });
       }
       setIsLoading(false);
     };

@@ -19,6 +19,7 @@ import {
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { BettingWizard } from "./betting/betting-wizard"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 interface RaceListProps {
   races: Race[]
@@ -36,7 +37,8 @@ interface RaceListProps {
   }
 }
 
-export function RaceList({ races, title, variant = "my", onSyncComplete, isLoading = false, hasMore = false, onLoadMore, summary }: RaceListProps) { // 追加
+export function RaceList({ races, title, variant = "my", onSyncComplete, isLoading = false, hasMore = false, onLoadMore, summary }: RaceListProps) {
+  const isMobile = useIsMobile()
   const { toast } = useToast()
   const observerTarget = useRef<HTMLDivElement>(null)
   const [isSyncing, setIsSyncing] = useState(false)
@@ -86,6 +88,88 @@ export function RaceList({ races, title, variant = "my", onSyncComplete, isLoadi
       }
     }
   }, [hasMore, isLoading, onLoadMore])
+
+  // IPAT同期の復帰処理（アプリを閉じて中断された場合のリカバリ）
+  useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    const checkActiveSync = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // 進行中の同期ログを探す
+      const { data: activeLog } = await supabase
+        .from('sync_logs')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'PROCESSING')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (activeLog) {
+        const createdAt = new Date(activeLog.created_at).getTime();
+        const now = Date.now();
+        // 5分以上経過していたらタイムアウトとみなす
+        const TIMEOUT_MS = 5 * 60 * 1000;
+
+        if (now - createdAt > TIMEOUT_MS) {
+          console.log('Found stale sync log, marking as error:', activeLog.id);
+          await supabase
+            .from('sync_logs')
+            .update({ 
+              status: 'ERROR', 
+              message: 'タイムアウト: 処理が中断された可能性があります' 
+            })
+            .eq('id', activeLog.id);
+        } else {
+          console.log('Resuming sync monitoring for:', activeLog.id);
+          setIsSyncing(true);
+          
+          channel = supabase
+            .channel(`sync_log_${activeLog.id}`)
+            .on(
+              'postgres_changes',
+              {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'sync_logs',
+                filter: `id=eq.${activeLog.id}`,
+              },
+              (payload) => {
+                const newStatus = payload.new.status
+                const message = payload.new.message
+                
+                if (newStatus === 'COMPLETED') {
+                  toast({
+                    title: "同期完了",
+                    description: "データの同期が完了しました。",
+                  })
+                  setIsSyncing(false)
+                  onSyncComplete?.()
+                  if (channel) supabase.removeChannel(channel)
+                } else if (newStatus === 'ERROR') {
+                  toast({
+                    variant: "destructive",
+                    title: "同期失敗",
+                    description: message || "エラーが発生しました",
+                  })
+                  setIsSyncing(false)
+                  if (channel) supabase.removeChannel(channel)
+                }
+              }
+            )
+            .subscribe()
+        }
+      }
+    };
+
+    checkActiveSync();
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, []);
 
   const handleIpatSync = async (mode: "past" | "today") => {
     setIsIpatDialogOpen(false)
@@ -235,7 +319,7 @@ export function RaceList({ races, title, variant = "my", onSyncComplete, isLoadi
         editingTicket={editingTicket}
       />
 
-      <div className="flex items-stretch gap-2 mb-3">
+      <div className={cn("flex gap-2 mb-3", isMobile ? "flex-col-reverse" : "items-stretch")}>
         <div className="glass-panel p-3 md:p-4 hud-border relative overflow-hidden flex-1">
           <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-[#00f3ff]/50" />
           <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-[#00f3ff]/50" />
@@ -268,7 +352,7 @@ export function RaceList({ races, title, variant = "my", onSyncComplete, isLoadi
         </div>
 
         {variant === "my" && (
-          <div className="flex items-center gap-1">
+          <div className={cn("flex items-center gap-1", isMobile && "grid grid-cols-3 w-full")}>
             <Dialog open={isIpatDialogOpen} onOpenChange={(open) => {
                 setIsIpatDialogOpen(open);
                 if (!open) {
@@ -279,7 +363,10 @@ export function RaceList({ races, title, variant = "my", onSyncComplete, isLoadi
               <DialogTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="flex flex-col items-center justify-center h-full w-18 px-0 text-[#00f3ff] hover:bg-[#00f3ff]/20 hover:text-[#00f3ff] border border-[#00f3ff]/50"
+                  className={cn(
+                    "flex flex-col items-center justify-center w-18 px-0 text-[#00f3ff] hover:bg-[#00f3ff]/20 hover:text-[#00f3ff] border border-[#00f3ff]/50",
+                    isMobile ? "h-16 w-full" : "h-full"
+                  )}
                   disabled={isSyncing}
                 >
                   {isSyncing ? (
@@ -377,7 +464,10 @@ export function RaceList({ races, title, variant = "my", onSyncComplete, isLoadi
             </Dialog>
             <Button
               variant="ghost"
-              className="flex flex-col items-center justify-center h-full w-18 px-0 text-[#00f3ff] hover:bg-[#00f3ff]/20 hover:text-[#00f3ff] border border-[#00f3ff]/50"
+              className={cn(
+                "flex flex-col items-center justify-center w-18 px-0 text-[#00f3ff] hover:bg-[#00f3ff]/20 hover:text-[#00f3ff] border border-[#00f3ff]/50",
+                isMobile ? "h-16 w-full" : "h-full"
+              )}
               onClick={() => handleSync("ocr")}
               disabled={isSyncing}
             >
@@ -386,7 +476,10 @@ export function RaceList({ races, title, variant = "my", onSyncComplete, isLoadi
             </Button>
             <Button
               variant="ghost"
-              className="flex flex-col items-center justify-center h-full w-18 px-0 text-[#00f3ff] hover:bg-[#00f3ff]/20 hover:text-[#00f3ff] border border-[#00f3ff]/50"
+              className={cn(
+                "flex flex-col items-center justify-center w-18 px-0 text-[#00f3ff] hover:bg-[#00f3ff]/20 hover:text-[#00f3ff] border border-[#00f3ff]/50",
+                isMobile ? "h-16 w-full" : "h-full"
+              )}
               onClick={() => handleSync("manual")}
               disabled={isSyncing}
             >

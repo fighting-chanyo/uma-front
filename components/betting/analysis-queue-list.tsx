@@ -1,9 +1,11 @@
 import React from 'react';
-import { CheckCircle2, AlertTriangle, Loader2, Edit, Trash2, AlertCircle } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Loader2, Edit, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AnalysisQueueItemWithUrl } from '@/hooks/use-ticket-analysis-queue';
 import { cn } from '@/lib/utils';
 import { AnalysisResult } from '@/types/analysis';
+import { analyzeTicketQueue } from '@/app/actions/ticket-analysis';
+import { useToast } from '@/hooks/use-toast';
 
 interface AnalysisQueueListProps {
   items: AnalysisQueueItemWithUrl[];
@@ -41,7 +43,38 @@ function isAnalysisComplete(result: AnalysisResult | null): boolean {
   return true;
 }
 
+function isStuck(item: AnalysisQueueItemWithUrl): boolean {
+  if (item.status === 'pending') return true;
+  if (item.status === 'error') return true;
+  if (item.status === 'processing') {
+    const updatedAt = new Date(item.updated_at).getTime();
+    const now = Date.now();
+    // 1分以上経過していたらスタックとみなす
+    return (now - updatedAt) > 60 * 1000;
+  }
+  return false;
+}
+
 export function AnalysisQueueList({ items, onEdit, onDelete }: AnalysisQueueListProps) {
+  const { toast } = useToast();
+
+  const handleRetry = async (id: string) => {
+    try {
+      toast({
+        title: "再解析を開始しました",
+        description: "解析完了までお待ちください",
+      });
+      await analyzeTicketQueue(id);
+    } catch (error) {
+      console.error('Retry error:', error);
+      toast({
+        variant: "destructive",
+        title: "再解析に失敗しました",
+        description: "時間をおいて再度お試しください",
+      });
+    }
+  };
+
   if (items.length === 0) {
     return null;
   }
@@ -94,6 +127,16 @@ export function AnalysisQueueList({ items, onEdit, onDelete }: AnalysisQueueList
 
             {/* Actions */}
             <div className="flex items-center gap-1">
+              {isStuck(item) && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleRetry(item.id)}
+                  title="再解析を実行"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              )}
               {item.status === 'completed' && (
                 <Button
                   variant="ghost"
