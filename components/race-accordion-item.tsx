@@ -164,22 +164,32 @@ function TicketRow({ ticket, onEdit }: { ticket: Ticket & { owner: "me" | "frien
     <div
       onClick={() => isEditable && onEdit(ticket)}
       className={cn(
-        "px-3 py-2 md:py-1 group transition-colors border-b border-dotted border-gray/40 last:border-b-0",
-        isEditable && "cursor-pointer hover:bg-white/10",
+        "relative overflow-hidden px-3 py-2 md:py-1 group transition-colors border-b border-dotted border-gray/40 last:border-b-0",
+        isEditable && (isAir ? "cursor-pointer hover:bg-[#00f3ff]/10" : "cursor-pointer hover:bg-white/10"),
         isAir
-          ? "bg-white/[0.08] border-l-2 border-dashed border-white/40"
+          ? "bg-[#00f3ff]/[0.06] ring-1 ring-inset ring-[#00f3ff]/20"
           : "bg-[#202020]",
-        !isEditable && "hover:bg-[#2d2d2d]"
+        !isEditable && (isAir ? "hover:bg-[#00f3ff]/10" : "hover:bg-[#2d2d2d]")
       )}
     >
-      <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_auto] gap-1 md:gap-3 items-center">
+      {isAir && (
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,243,255,0.18)_0%,rgba(0,243,255,0.07)_40%,transparent_75%)]" />
+          <div className="absolute inset-0 opacity-60 bg-[repeating-linear-gradient(135deg,rgba(0,243,255,0.28)_0px,rgba(0,243,255,0.28)_2px,transparent_2px,transparent_10px)]" />
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 rotate-12 select-none text-[28px] md:text-[32px] font-black tracking-[0.35em] text-[#00f3ff]/20">
+            AIR
+          </div>
+        </div>
+      )}
+
+      <div className="relative z-10 grid grid-cols-1 md:grid-cols-[auto_1fr_auto] gap-1 md:gap-3 items-center">
         {/* Mobile: Top Row (Status + Type + Content) / PC: Col 1 & 2 */}
         <div className="flex items-center gap-2 min-w-0 md:contents">
           {/* Status + Bet Type + Mode Badge */}
           <div className="flex items-center gap-2 shrink-0">
             <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", statusColor[ticket.status])} />
             {isAir && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 border border-dashed text-white/70 border-white/40 bg-white/5">
+              <span className="text-[10px] font-bold px-2 py-0.5 border text-[#00f3ff] border-[#00f3ff]/40 bg-[#00f3ff]/15">
                 エア
               </span>
             )}

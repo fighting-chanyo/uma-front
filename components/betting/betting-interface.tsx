@@ -395,35 +395,41 @@ export function BettingInterface({ defaultTab = 'manual', onClose, editingQueueI
   }
 
   return (
-    <div className="space-y-8 w-full pb-20">
-      <Tabs defaultValue={defaultTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-8">
-          <TabsTrigger value="manual">手動入力</TabsTrigger>
-          <TabsTrigger value="image">画像認識</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="manual">
-          <ManualInputTab onAddBet={handleAddBet} />
-        </TabsContent>
-        
-        <TabsContent value="image">
-          <ImageRecognitionTab 
-            onAddBet={handleAddBet} 
-            onUploadComplete={() => {
-              if (onClose) onClose();
-            }}
-          />
-        </TabsContent>
-      </Tabs>
+    <div className="flex flex-col h-full gap-4">
+      <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+        <div className="space-y-8 w-full pb-6">
+          <Tabs defaultValue={defaultTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-8">
+              <TabsTrigger value="manual">手動入力</TabsTrigger>
+              <TabsTrigger value="image">画像認識</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="manual">
+              <ManualInputTab onAddBet={handleAddBet} />
+            </TabsContent>
+            
+            <TabsContent value="image">
+              <ImageRecognitionTab 
+                onAddBet={handleAddBet} 
+                onUploadComplete={() => {
+                  if (onClose) onClose();
+                }}
+              />
+            </TabsContent>
+          </Tabs>
 
-      <div className="space-y-4">
-        <StagedBetsList bets={stagedBets} onRemove={handleRemoveBet} onEdit={(index) => {
-            // Switch to manual tab and populate form? 
-            // For now, let's just log or ignore
-            console.log('Edit not fully supported in normal mode yet', index);
-        }} />
-        
-        {stagedBets.length > 0 && (
+          <div className="space-y-4">
+            <StagedBetsList bets={stagedBets} onRemove={handleRemoveBet} onEdit={(index) => {
+                // Switch to manual tab and populate form? 
+                // For now, let's just log or ignore
+                console.log('Edit not fully supported in normal mode yet', index);
+            }} />
+          </div>
+        </div>
+      </div>
+
+      {stagedBets.length > 0 && (
+        <div className="flex-none pt-4 border-t border-border bg-background">
           <Button 
             className="w-full h-12 text-lg font-bold bg-accent text-accent-foreground hover:bg-accent/90 shadow-[0_0_20px_rgba(0,243,255,0.3)]"
             onClick={handleConfirm}
@@ -441,8 +447,8 @@ export function BettingInterface({ defaultTab = 'manual', onClose, editingQueueI
               </>
             )}
           </Button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

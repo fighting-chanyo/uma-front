@@ -395,7 +395,7 @@ export function BettingForm({ initialState, onAdd, className, submitLabel, onDel
           <div className="text-lg">合計金額: <span className="text-primary font-bold">¥{totalCost.toLocaleString()}</span></div>
         </div>
         
-        <div className="flex gap-2 w-full md:w-auto">
+        <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
           {onDelete && (
             <Button
               variant="destructive"
