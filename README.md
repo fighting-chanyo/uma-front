@@ -2,6 +2,10 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+## Environment Variables
+
+- `NEXT_RUNTIME_SECRET`: Server-side secret used to encrypt/decrypt the IPAT session cookie. Set this in your deployment environment (do not commit it). Use a strong random value (recommended: 32+ bytes).
+
 First, run the development server:
 
 ```bash
