@@ -433,9 +433,9 @@ export function RaceList({ races, title, variant = "my", onSyncComplete, isLoadi
                         className="flex flex-col items-start h-auto p-4 border-white/10 hover:bg-white/5 hover:text-[#00f3ff] hover:border-[#00f3ff]/50 transition-all"
                         onClick={() => handleIpatSync("today")}
                       >
-                        <span className="font-bold mb-1">今日の馬券</span>
+                        <span className="font-bold mb-1">今節の馬券</span>
                         <span className="text-xs text-gray-400 font-normal text-left whitespace-normal">
-                          本日購入した馬券データを同期します。（投票受付時間外の場合、動作せずエラーになります。）
+                        今節のレースで購入した馬券データを同期します。（投票受付時間外の場合、動作せずエラーになります。）
                         </span>
                       </Button>
                       <Button
@@ -443,9 +443,9 @@ export function RaceList({ races, title, variant = "my", onSyncComplete, isLoadi
                         className="flex flex-col items-start h-auto p-4 border-white/10 hover:bg-white/5 hover:text-[#00f3ff] hover:border-[#00f3ff]/50 transition-all"
                         onClick={() => handleIpatSync("past")}
                       >
-                        <span className="font-bold mb-1">前日までの馬券</span>
+                        <span className="font-bold mb-1">前節までの馬券</span>
                         <span className="text-xs text-gray-400 font-normal text-left whitespace-normal">
-                          過去60日以内にIPATで購入した馬券データを取得します。（今日分のデータは取得できません）
+                          過去60日以内にIPATで購入した馬券データを取得します。（今節分のデータは取得できません）
                         </span>
                       </Button>
                     </div>

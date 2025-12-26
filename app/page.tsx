@@ -647,6 +647,86 @@ export default function DashboardPage() {
     fetchFriendTickets(false, filterState.selectedFriendIds)
   }, [filterState.selectedFriendIds])
 
+  // 友達のチケットもリアルタイムで反映する
+  useEffect(() => {
+    const targetFriendIds = filterState.selectedFriendIds
+    if (targetFriendIds.length === 0) return
+
+    const channel = supabase.channel('friend_tickets_realtime')
+
+    const onTicketChange = async (payload: unknown) => {
+      if (!payload || typeof payload !== 'object') return
+
+      const p = payload as {
+        eventType?: string
+        new?: Record<string, unknown>
+        old?: Record<string, unknown>
+      }
+
+      if (p.eventType === 'DELETE') {
+        const oldId = typeof p.old?.id === 'string' ? p.old.id : null
+        if (!oldId) return
+        setFriendTickets((prev) => prev.filter((t) => t.id !== oldId))
+        fetchFriendSummary()
+        return
+      }
+
+      const ticketId = typeof p.new?.id === 'string' ? p.new.id : null
+      if (!ticketId) return
+
+      const { data: newTicketData, error } = await supabase
+        .from('tickets')
+        .select(
+          `
+          *,
+          races (
+            name, date, place_code, race_number
+          ),
+          profiles:user_id (
+            id, display_name, avatar_url
+          )
+        `
+        )
+        .eq('id', ticketId)
+        .single()
+
+      if (error || !newTicketData) return
+
+      const mappedTicket = mapTicketData(newTicketData)
+
+      setFriendTickets((prev) => {
+        const index = prev.findIndex((t) => t.id === mappedTicket.id)
+        if (index >= 0) {
+          const next = [...prev]
+          next[index] = mappedTicket
+          return next
+        }
+        return [mappedTicket, ...prev]
+      })
+
+      fetchFriendSummary()
+    }
+
+    targetFriendIds.forEach((friendId) => {
+      channel.on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tickets',
+          filter: `user_id=eq.${friendId}`,
+        },
+        onTicketChange
+      )
+    })
+
+    channel.subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [filterState.selectedFriendIds, fetchFriendSummary])
+
   const hasActiveFilters = useMemo(() => {
     return (
       filterState.dateRange.from !== null ||

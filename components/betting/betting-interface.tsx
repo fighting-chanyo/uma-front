@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ManualInputTab } from './manual-input-tab';
 import { ImageRecognitionTab } from './image-recognition-tab';
 import { StagedBetsList } from './staged-bets-list';
@@ -398,25 +397,16 @@ export function BettingInterface({ defaultTab = 'manual', onClose, editingQueueI
     <div className="flex flex-col h-full gap-4">
       <div className="flex-1 min-h-0 overflow-y-auto pr-2">
         <div className="space-y-8 w-full pb-6">
-          <Tabs defaultValue={defaultTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-8">
-              <TabsTrigger value="manual">手動入力</TabsTrigger>
-              <TabsTrigger value="image">画像認識</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="manual">
-              <ManualInputTab onAddBet={handleAddBet} />
-            </TabsContent>
-            
-            <TabsContent value="image">
-              <ImageRecognitionTab 
-                onAddBet={handleAddBet} 
-                onUploadComplete={() => {
-                  if (onClose) onClose();
-                }}
-              />
-            </TabsContent>
-          </Tabs>
+          {defaultTab === 'image' ? (
+            <ImageRecognitionTab 
+              onAddBet={handleAddBet} 
+              onUploadComplete={() => {
+                if (onClose) onClose();
+              }}
+            />
+          ) : (
+            <ManualInputTab onAddBet={handleAddBet} />
+          )}
 
           <div className="space-y-4">
             <StagedBetsList bets={stagedBets} onRemove={handleRemoveBet} onEdit={(index) => {
