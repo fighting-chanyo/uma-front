@@ -43,6 +43,7 @@ export async function syncIpat(mode: 'today' | 'past') {
 
   try {
     const apiUrl = resolveIpatSyncApiUrl();
+    const backendMode = mode === 'today' ? 'recent' : 'past';
 
     // 1. sync_logs にレコード作成
     const { data: log, error: logError } = await supabase
@@ -51,6 +52,7 @@ export async function syncIpat(mode: 'today' | 'past') {
         user_id: user.id,
         status: 'PROCESSING',
         mode: mode,
+        message: `Requested mode: ${mode}`,
       })
       .select()
       .single();
@@ -72,7 +74,10 @@ export async function syncIpat(mode: 'today' | 'past') {
         log_id: log.id,
         user_id: user.id,
         ipat_auth: ipatAuth,
-        mode: mode, // API側で対応が必要な場合に使用
+        // NOTE: バックエンド側が「recent/past」名を期待する場合に備え、today→recentへ変換
+        mode: backendMode,
+        // デバッグ/後方互換用（バックエンドが today/past を期待している場合はこれを参照できる）
+        client_mode: mode,
       }),
     });
 

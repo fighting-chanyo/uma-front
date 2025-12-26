@@ -78,14 +78,15 @@ export function useTicketAnalysisQueue() {
               event: '*',
               schema: 'public',
               table: 'analysis_queue',
-              filter: `user_id=eq.${userId}`,
             },
             (payload) => {
               if (payload.eventType === 'INSERT') {
                 const newItem = payload.new as AnalysisQueueItem;
+                if (newItem.user_id !== userId) return;
                 setQueueItems((prev) => [{ ...newItem, publicUrl: getPublicUrl(newItem.image_path, newItem.status) }, ...prev]);
               } else if (payload.eventType === 'UPDATE') {
                 const updatedItem = payload.new as AnalysisQueueItem;
+                if (updatedItem.user_id !== userId) return;
                 setQueueItems((prev) =>
                   prev.map((item) =>
                     item.id === updatedItem.id

@@ -765,7 +765,7 @@ export default function DashboardPage() {
     return "FRIENDS' RACES";
   }, [filterState.selectedFriendIds, friends]);
 
-  const refreshFriendData = async () => {
+  const refreshFriendData = useCallback(async () => {
     try {
       const requests = await getFriendRequests()
       setPendingRequestCount(requests.length)
@@ -778,32 +778,100 @@ export default function DashboardPage() {
         .select('friend_id')
         .eq('user_id', user.id)
         .eq('status', 'ACCEPTED')
-      
-      if (friendsError) throw friendsError
-      
-      const friendIds = friendsData?.map(f => f.friend_id) || []
-      
-      if (friendIds.length > 0) {
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('*')
-          .in('id', friendIds)
-        
-        if (profilesError) throw profilesError
 
-        const mappedFriends: Friend[] = (profilesData || []).map(p => ({
-          id: p.id,
-          name: p.display_name || 'Unknown',
-          avatar: p.avatar_url || ''
-        }))
-        setFriends(mappedFriends)
-      } else {
+      if (friendsError) throw friendsError
+
+      const friendIds = friendsData?.map(f => f.friend_id) || []
+
+      if (friendIds.length === 0) {
         setFriends([])
+        setFilterState(prev => ({ ...prev, selectedFriendIds: [] }))
+        return
       }
+
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', friendIds)
+
+      if (profilesError) throw profilesError
+
+      const mappedFriends: Friend[] = (profilesData || []).map(p => ({
+        id: p.id,
+        name: p.display_name || 'Unknown',
+        avatar: p.avatar_url || ''
+      }))
+
+      const mappedFriendIdSet = new Set(mappedFriends.map(f => f.id))
+      const prevFriendIdSet = new Set(friends.map(f => f.id))
+      const newlyAddedIds = mappedFriends
+        .map(f => f.id)
+        .filter(id => !prevFriendIdSet.has(id))
+
+      setFriends(mappedFriends)
+
+      // 既存の選択は維持しつつ、新しく増えた友達は自動で選択に追加
+      setFilterState(prev => {
+        const kept = prev.selectedFriendIds.filter(id => mappedFriendIdSet.has(id))
+        const next = [...kept]
+        for (const id of newlyAddedIds) {
+          if (!next.includes(id)) next.push(id)
+        }
+        return { ...prev, selectedFriendIds: next }
+      })
     } catch (error) {
       console.error('Error refreshing friend data:', error)
     }
-  }
+  }, [friends])
+
+  // friendsが承認/追加されたらフィルターへ即反映（ページ更新不要）
+  useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let disposed = false
+
+    const subscribe = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user || disposed) return
+
+      channel = supabase
+        .channel('friends_realtime')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'friends',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            const row = payload.new as any
+            if (row?.status !== 'ACCEPTED') return
+            refreshFriendData()
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'friends',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            const row = payload.new as any
+            if (row?.status !== 'ACCEPTED') return
+            refreshFriendData()
+          }
+        )
+        .subscribe()
+    }
+
+    subscribe()
+    return () => {
+      disposed = true
+      if (channel) supabase.removeChannel(channel)
+    }
+  }, [refreshFriendData])
 
   return (
     <div className="min-h-screen bg-[#050505] relative">
@@ -945,7 +1013,7 @@ export default function DashboardPage() {
       <FriendRequestModal 
         isOpen={isFriendModalOpen} 
         onClose={() => setIsFriendModalOpen(false)} 
-        onUpdate={refreshFriendRequests}
+        onUpdate={refreshFriendData}
       />
 
       <BettingWizard 

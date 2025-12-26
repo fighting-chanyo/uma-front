@@ -120,6 +120,21 @@ export async function analyzeTicketQueue(queueId: string) {
 }
 
 export async function deleteAnalysisQueue(queueId: string) {
-    const supabase = await createClient()
-    await supabase.from('analysis_queue').delete().eq('id', queueId)
+  const supabase = await createClient()
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+  if (userError || !user) {
+    throw new Error('Unauthorized')
+  }
+
+  const { error } = await supabase
+    .from('analysis_queue')
+    .delete()
+    .eq('id', queueId)
+    .eq('user_id', user.id)
+
+  if (error) {
+    console.error('Failed to delete analysis queue:', error)
+    throw new Error('Failed to delete analysis queue')
+  }
 }
