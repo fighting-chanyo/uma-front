@@ -3,8 +3,19 @@
 import { createClient } from '@/lib/supabase/server';
 import { setIpatSession, getIpatSession, hasIpatSession, IpatAuthData } from '@/lib/ipat-auth';
 
-// Cloud Run APIのエンドポイント（環境変数から取得推奨）
-const API_URL = process.env.IPAT_SYNC_API_URL || 'http://localhost:8000/api/sync/ipat';
+function resolveIpatSyncApiUrl(): string {
+  const explicit = process.env.IPAT_SYNC_API_URL;
+  if (explicit && explicit.trim().length > 0) {
+    return explicit;
+  }
+
+  const base = process.env.NEXT_PUBLIC_API_URL;
+  if (base && base.trim().length > 0) {
+    return new URL('/api/sync/ipat', base).toString();
+  }
+
+  throw new Error('Missing env: set IPAT_SYNC_API_URL or NEXT_PUBLIC_API_URL');
+}
 
 export async function saveIpatAuth(data: IpatAuthData) {
   await setIpatSession(data);
@@ -31,6 +42,8 @@ export async function syncIpat(mode: 'today' | 'past') {
   let logId: string | null = null;
 
   try {
+    const apiUrl = resolveIpatSyncApiUrl();
+
     // 1. sync_logs にレコード作成
     const { data: log, error: logError } = await supabase
       .from('sync_logs')
@@ -50,7 +63,7 @@ export async function syncIpat(mode: 'today' | 'past') {
     logId = log.id;
 
     // 2. Cloud Run API 呼び出し
-    const response = await fetch(API_URL, {
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -67,7 +80,7 @@ export async function syncIpat(mode: 'today' | 'past') {
       // API呼び出し失敗時はログを更新
       await supabase
         .from('sync_logs')
-        .update({ status: 'ERROR', message: `API Error: ${response.statusText}` })
+        .update({ status: 'ERROR', message: `API Error: ${response.status} ${response.statusText} (${apiUrl})` })
         .eq('id', log.id);
       
       return { success: false, error: `API request failed: ${response.statusText}` };
@@ -89,6 +102,6 @@ export async function syncIpat(mode: 'today' | 'past') {
         .eq('id', logId);
     }
 
-    return { success: false, error: 'Internal server error' };
+    return { success: false, error: error instanceof Error ? error.message : 'Internal server error' };
   }
 }
