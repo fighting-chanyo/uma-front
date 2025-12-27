@@ -5,13 +5,15 @@ import { RaceData } from "@/app/actions/race"
 import { format, differenceInSeconds, addMinutes } from "date-fns"
 import { getNow } from "@/lib/time-utils"
 import { PLACE_CODE_TO_NAME } from "@/lib/betting-utils"
+import { cn } from "@/lib/utils"
 
 interface RaceCountdownProps {
   races: RaceData[]
   onOpenSchedule: () => void
+  className?: string
 }
 
-export function RaceCountdown({ races, onOpenSchedule }: RaceCountdownProps) {
+export function RaceCountdown({ races, onOpenSchedule, className }: RaceCountdownProps) {
   const [now, setNow] = useState(getNow())
 
   useEffect(() => {
@@ -53,7 +55,10 @@ export function RaceCountdown({ races, onOpenSchedule }: RaceCountdownProps) {
 
   return (
     <div 
-      className="hidden md:flex items-center gap-2 px-3 py-1 border border-[#00f3ff]/30 bg-[#00f3ff]/5 cursor-pointer hover:bg-[#00f3ff]/10 transition-colors"
+      className={cn(
+        "items-center gap-2 px-3 py-1 border border-[#00f3ff]/30 bg-[#00f3ff]/5 cursor-pointer hover:bg-[#00f3ff]/10 transition-colors",
+        className
+      )}
       onClick={onOpenSchedule}
     >
       <span className="text-[10px] text-[#00f3ff] font-mono tracking-wider">NEXT:</span>

@@ -57,6 +57,7 @@ export function Header({
           <RaceCountdown 
             races={races} 
             onOpenSchedule={() => setIsScheduleOpen(true)} 
+            className="hidden md:flex"
           />
         )}
 
@@ -95,6 +96,16 @@ export function Header({
           </Link>
         </div>
       </div>
+
+      {races.length > 0 && (
+        <div className="max-w-[1800px] mx-auto px-4 md:px-6 pb-2 md:hidden">
+          <RaceCountdown
+            races={races}
+            onOpenSchedule={() => setIsScheduleOpen(true)}
+            className="flex"
+          />
+        </div>
+      )}
 
       <RaceScheduleModal 
         isOpen={isScheduleOpen} 
